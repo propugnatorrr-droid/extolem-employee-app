@@ -8,7 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
-import { colors, radius, avatarColor, initials } from '../theme';
+import { colors, radius, shadow, avatarColor, initials } from '../theme';
 import { getMessages, markReplied, suggestReply, askAI } from '../api';
 
 // ─── Emotion visual config ────────────────────────────────────
@@ -90,6 +90,8 @@ export default function ThreadScreen({ route, navigation }) {
   const [showDetail, setShowDetail] = useState(false);
   const cardOpacity = useRef(new Animated.Value(0)).current;
   const listRef = useRef(null);
+  const prevCount = useRef(0);
+
 
   useEffect(() => {
     loadMessages();
@@ -100,7 +102,12 @@ export default function ThreadScreen({ route, navigation }) {
   async function loadMessages() {
     try {
       const data = await getMessages(thread.instagram_thread_id);
-      setMessages(Array.isArray(data) ? data : []);
+      const arr = Array.isArray(data) ? data : [];
+      setMessages(arr);
+      if (arr.length > prevCount.current) {
+        setTimeout(() => listRef.current?.scrollToEnd({ animated: prevCount.current !== 0 }), 60);
+      }
+      prevCount.current = arr.length;
     } catch (e) { /* keep */ }
     finally { setLoading(false); }
   }
@@ -248,10 +255,10 @@ export default function ThreadScreen({ route, navigation }) {
           data={messages}
           keyExtractor={item => String(item.id || item.instagram_message_id)}
           contentContainerStyle={{ padding: 16, paddingBottom: 12 }}
-          onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: false })}
           renderItem={renderMessage}
           showsVerticalScrollIndicator={false}
         />
+
       )}
 
       {/* ── AI SUGGESTION CARD (stunning redesign) ── */}
@@ -265,7 +272,7 @@ export default function ThreadScreen({ route, navigation }) {
             <View style={styles.aiHead}>
               <View style={styles.aiHeadLeft}>
                 <Ionicons name="sparkles" size={16} color={accentColor} />
-                <Text style={[styles.aiHeadText, { color: accentColor }]}>AI Intelligence</Text>
+                <Text style={[styles.aiHeadText, { color: accentColor }]}>Suggested reply</Text>
               </View>
               <TouchableOpacity onPress={dismissAICard} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
                 <Ionicons name="close" size={20} color={colors.textMuted} />
@@ -390,9 +397,9 @@ const styles = StyleSheet.create({
   row: { marginBottom: 14, maxWidth: '85%' },
   rowLeft: { alignSelf: 'flex-start', alignItems: 'flex-start' },
   rowRight: { alignSelf: 'flex-end', alignItems: 'flex-end' },
-  bubble: { borderRadius: 18, paddingHorizontal: 14, paddingVertical: 10 },
-  bubbleClient: { backgroundColor: colors.bgCard, borderTopLeftRadius: 5, borderWidth: 1, borderColor: colors.border },
-  bubbleMe: { backgroundColor: colors.accent, borderTopRightRadius: 5 },
+  bubble: { borderRadius: radius.lg, paddingHorizontal: 14, paddingVertical: 10 },
+  bubbleClient: { backgroundColor: colors.bgCard, borderBottomLeftRadius: 6 },
+  bubbleMe: { backgroundColor: colors.accent, borderBottomRightRadius: 6 },
   bubbleText: { fontSize: 15, color: colors.textPrimary, lineHeight: 21 },
   bubbleTime: { fontSize: 10, color: colors.textMuted, marginTop: 4, alignSelf: 'flex-end' },
   sugPill: {
@@ -410,12 +417,9 @@ const styles = StyleSheet.create({
   aiCardWrapper: {
     marginHorizontal: 12, marginBottom: 6,
     borderRadius: radius.lg + 4,
-    shadowColor: colors.accent,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 16,
-    elevation: 8,
+    ...shadow.card,
   },
+
   aiAccentBar: {
     height: 3,
     borderTopLeftRadius: radius.lg + 4,
@@ -436,7 +440,7 @@ const styles = StyleSheet.create({
   aiHeadLeft: {
     flexDirection: 'row', alignItems: 'center', gap: 7,
   },
-  aiHeadText: { fontSize: 14, fontWeight: '800', letterSpacing: 0.5, textTransform: 'uppercase' },
+  aiHeadText: { fontSize: 13, fontWeight: '700', letterSpacing: 0, textTransform: 'none' },
 
   chipRow: {
     flexDirection: 'row', flexWrap: 'wrap', gap: 6,
@@ -491,7 +495,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
     borderRadius: radius.md, paddingVertical: 13,
   },
-  copyBtnText: { color: '#fff', fontWeight: '800', fontSize: 14, letterSpacing: 0.5, textTransform: 'uppercase' },
+  copyBtnText: { color: '#fff', fontWeight: '700', fontSize: 15, letterSpacing: 0, textTransform: 'none' },
 
   bottom: { backgroundColor: colors.bgElevated, borderTopWidth: 1, borderTopColor: colors.border, paddingHorizontal: 12, paddingTop: 10, gap: 10 },
   suggestBtn: {
