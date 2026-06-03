@@ -19,9 +19,6 @@
       "package": "com.extolem.employee",
       "versionCode": 1
     },
-    "plugins": [
-      "expo-router"
-    ],
     "owner": "extolem",
     "extra": {
       "eas": {
