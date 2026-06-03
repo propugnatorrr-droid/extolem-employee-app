@@ -1,11 +1,18 @@
 const Database = require('better-sqlite3');
 const path = require('path');
+const fs = require('fs');
 
-const db = new Database(path.join(__dirname, 'extolem.db'));
+// Use a persistent volume path if provided (Railway volume), else local file.
+const DB_PATH = process.env.DB_PATH || path.join(__dirname, 'extolem.db');
+// Ensure the directory exists (e.g. /data on a mounted volume)
+try { fs.mkdirSync(path.dirname(DB_PATH), { recursive: true }); } catch (e) {}
+
+const db = new Database(DB_PATH);
 
 // Enable WAL mode for better concurrent write handling
 db.pragma('journal_mode = WAL');
 db.pragma('synchronous = NORMAL');
+db.pragma('busy_timeout = 5000');
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS conversations (

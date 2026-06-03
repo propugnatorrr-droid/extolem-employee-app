@@ -1,15 +1,18 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, FlatList, TouchableOpacity, StyleSheet,
-  RefreshControl, TextInput, ActivityIndicator, SafeAreaView
+  RefreshControl, TextInput, ActivityIndicator,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, fonts, radius } from '../theme';
+import { colors, radius, avatarColor, initials } from '../theme';
 import { getConversations } from '../api';
 
 function timeAgo(dateStr) {
   if (!dateStr) return '';
-  const diff = Date.now() - new Date(dateStr).getTime();
+  const d = new Date((dateStr || '').replace(' ', 'T') + (dateStr.includes('Z') ? '' : 'Z'));
+  const diff = Date.now() - d.getTime();
+  if (isNaN(diff)) return '';
   const m = Math.floor(diff / 60000);
   if (m < 1) return 'now';
   if (m < 60) return `${m}m`;
@@ -18,18 +21,16 @@ function timeAgo(dateStr) {
   return `${Math.floor(h / 24)}d`;
 }
 
-function Avatar({ name, size = 48 }) {
-  const initials = (name || '?').split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
-  const colors_list = ['#6366F1', '#8B5CF6', '#EC4899', '#F59E0B', '#10B981', '#3B82F6'];
-  const idx = (name || '').split('').reduce((a, c) => a + c.charCodeAt(0), 0) % colors_list.length;
+function Avatar({ name, size = 52 }) {
   return (
-    <View style={[styles.avatar, { width: size, height: size, borderRadius: size / 2, backgroundColor: colors_list[idx] }]}>
-      <Text style={{ color: '#fff', fontSize: size * 0.38, fontWeight: '700' }}>{initials}</Text>
+    <View style={[styles.avatar, { width: size, height: size, borderRadius: size / 2, backgroundColor: avatarColor(name) }]}>
+      <Text style={{ color: '#fff', fontSize: size * 0.36, fontWeight: '700' }}>{initials(name)}</Text>
     </View>
   );
 }
 
 export default function InboxScreen({ navigation }) {
+  const insets = useSafeAreaInsets();
   const [conversations, setConversations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -39,40 +40,45 @@ export default function InboxScreen({ navigation }) {
     if (isRefresh) setRefreshing(true);
     try {
       const data = await getConversations();
-      setConversations(data);
-    } catch (e) { console.error(e); }
+      setConversations(Array.isArray(data) ? data : []);
+    } catch (e) { /* keep last good state */ }
     finally { setLoading(false); setRefreshing(false); }
   }, []);
 
   useEffect(() => {
     load();
-    const interval = setInterval(() => load(), 15000);
+    const interval = setInterval(() => load(), 12000);
     return () => clearInterval(interval);
   }, [load]);
 
   const filtered = conversations.filter(c =>
-    (c.client_name || '').toLowerCase().includes(search.toLowerCase())
+    (c.client_name || c.client_username || '').toLowerCase().includes(search.toLowerCase())
   );
   const totalUnread = conversations.reduce((a, c) => a + (c.unread_count || 0), 0);
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={[styles.container, { paddingTop: insets.top }]}>
       {/* Header */}
       <View style={styles.header}>
-        <View>
+        <View style={{ flex: 1 }}>
           <Text style={styles.brand}>EXTOLEM</Text>
-          <Text style={styles.headerTitle}>
-            Messages {totalUnread > 0 && <Text style={styles.unreadCount}>({totalUnread} new)</Text>}
-          </Text>
+          <View style={styles.titleRow}>
+            <Text style={styles.title}>Messages</Text>
+            {totalUnread > 0 && (
+              <View style={styles.unreadPill}>
+                <Text style={styles.unreadPillText}>{totalUnread} new</Text>
+              </View>
+            )}
+          </View>
         </View>
-        <TouchableOpacity style={styles.addBtn} onPress={() => navigation.navigate('NewConversation')}>
+        <TouchableOpacity style={styles.addBtn} onPress={() => navigation.navigate('NewConversation')} activeOpacity={0.8}>
           <Ionicons name="create-outline" size={20} color="#fff" />
         </TouchableOpacity>
       </View>
 
       {/* Search */}
       <View style={styles.searchWrap}>
-        <Ionicons name="search-outline" size={16} color={colors.textMuted} style={{ marginRight: 8 }} />
+        <Ionicons name="search-outline" size={17} color={colors.textMuted} />
         <TextInput
           style={styles.searchInput}
           placeholder="Search clients..."
@@ -82,124 +88,112 @@ export default function InboxScreen({ navigation }) {
         />
         {search.length > 0 && (
           <TouchableOpacity onPress={() => setSearch('')}>
-            <Ionicons name="close-circle" size={16} color={colors.textMuted} />
+            <Ionicons name="close-circle" size={18} color={colors.textMuted} />
           </TouchableOpacity>
         )}
       </View>
 
       {loading ? (
-        <View style={styles.center}>
-          <ActivityIndicator color={colors.accent} size="large" />
-        </View>
+        <View style={styles.center}><ActivityIndicator color={colors.accent} size="large" /></View>
       ) : (
         <FlatList
           data={filtered}
           keyExtractor={item => item.instagram_thread_id}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} tintColor={colors.accent} />}
           contentContainerStyle={{ paddingBottom: 24, flexGrow: 1 }}
+          showsVerticalScrollIndicator={false}
           ListEmptyComponent={
             <View style={styles.empty}>
               <View style={styles.emptyIcon}>
-                <Ionicons name="chatbubbles-outline" size={40} color={colors.accent} />
+                <Ionicons name="chatbubbles-outline" size={38} color={colors.accent} />
               </View>
               <Text style={styles.emptyTitle}>No conversations yet</Text>
-              <Text style={styles.emptySub}>Instagram DMs will appear here{'\n'}automatically every 15 seconds</Text>
-              <TouchableOpacity style={styles.newBtn} onPress={() => navigation.navigate('NewConversation')}>
-                <Ionicons name="add" size={16} color="#fff" style={{ marginRight: 6 }} />
-                <Text style={styles.newBtnText}>Add Manual Message</Text>
+              <Text style={styles.emptySub}>Instagram DMs sync here automatically.{'\n'}Pull down to refresh.</Text>
+              <TouchableOpacity style={styles.emptyBtn} onPress={() => navigation.navigate('NewConversation')}>
+                <Ionicons name="add" size={16} color="#fff" />
+                <Text style={styles.emptyBtnText}>Add a message manually</Text>
               </TouchableOpacity>
             </View>
           }
-          renderItem={({ item }) => (
-            <TouchableOpacity
-              style={[styles.card, item.unread_count > 0 && styles.cardActive]}
-              onPress={() => navigation.navigate('Thread', { thread: item })}
-              activeOpacity={0.75}
-            >
-              <View style={styles.avatarWrap}>
-                <Avatar name={item.client_name} />
-                {item.unread_count > 0 && <View style={styles.onlineDot} />}
-              </View>
-              <View style={styles.cardContent}>
-                <View style={styles.cardTop}>
-                  <Text style={styles.clientName} numberOfLines={1}>{item.client_name || 'Instagram User'}</Text>
-                  <Text style={styles.timeText}>{timeAgo(item.last_message_time)}</Text>
+          renderItem={({ item }) => {
+            const name = item.client_name || item.client_username || 'Instagram User';
+            const unread = item.unread_count > 0;
+            return (
+              <TouchableOpacity
+                style={styles.card}
+                onPress={() => navigation.navigate('Thread', { thread: item })}
+                activeOpacity={0.7}
+              >
+                <View>
+                  <Avatar name={name} />
+                  {unread && <View style={styles.dot} />}
                 </View>
-                <View style={styles.cardBottom}>
-                  <Text style={[styles.lastMsg, item.unread_count > 0 && styles.lastMsgBold]} numberOfLines={1}>
-                    {item.last_message || 'Tap to view conversation'}
-                  </Text>
-                  {item.unread_count > 0 && (
-                    <View style={styles.badge}>
-                      <Text style={styles.badgeText}>{item.unread_count}</Text>
-                    </View>
-                  )}
+                <View style={styles.cardBody}>
+                  <View style={styles.cardTop}>
+                    <Text style={[styles.name, unread && styles.nameBold]} numberOfLines={1}>{name}</Text>
+                    <Text style={styles.time}>{timeAgo(item.last_message_time)}</Text>
+                  </View>
+                  <View style={styles.cardBottom}>
+                    <Text style={[styles.preview, unread && styles.previewUnread]} numberOfLines={1}>
+                      {item.last_message || 'Tap to open conversation'}
+                    </Text>
+                    {unread && (
+                      <View style={styles.badge}><Text style={styles.badgeText}>{item.unread_count}</Text></View>
+                    )}
+                  </View>
                 </View>
-              </View>
-            </TouchableOpacity>
-          )}
+              </TouchableOpacity>
+            );
+          }}
         />
       )}
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  header: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingHorizontal: 20, paddingTop: 16, paddingBottom: 20,
-  },
-  brand: { fontSize: 11, fontWeight: '800', color: colors.accent, letterSpacing: 3, marginBottom: 2 },
-  headerTitle: { fontSize: 26, fontWeight: '800', color: colors.textPrimary },
-  unreadCount: { color: colors.accent, fontSize: 18 },
+  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingTop: 12, paddingBottom: 16 },
+  brand: { fontSize: 11, fontWeight: '800', color: colors.accent, letterSpacing: 3, marginBottom: 3 },
+  titleRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  title: { fontSize: 28, fontWeight: '800', color: colors.textPrimary },
+  unreadPill: { backgroundColor: colors.accentGlow, borderRadius: radius.full, paddingHorizontal: 10, paddingVertical: 3 },
+  unreadPillText: { color: colors.accentLight, fontSize: 12, fontWeight: '700' },
   addBtn: {
-    width: 42, height: 42, borderRadius: 21, backgroundColor: colors.accent,
+    width: 44, height: 44, borderRadius: 22, backgroundColor: colors.accent,
     alignItems: 'center', justifyContent: 'center',
+    shadowColor: colors.accent, shadowOpacity: 0.4, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 5,
   },
   searchWrap: {
-    flexDirection: 'row', alignItems: 'center', backgroundColor: colors.bgCard,
-    borderRadius: radius.lg, marginHorizontal: 20, marginBottom: 16,
-    paddingHorizontal: 14, paddingVertical: 12,
-    borderWidth: 1, borderColor: colors.border,
+    flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: colors.bgCard,
+    borderRadius: radius.lg, marginHorizontal: 20, marginBottom: 14,
+    paddingHorizontal: 14, paddingVertical: 12, borderWidth: 1, borderColor: colors.border,
   },
-  searchInput: { flex: 1, color: colors.textPrimary, fontSize: 14 },
+  searchInput: { flex: 1, color: colors.textPrimary, fontSize: 15 },
   card: {
-    flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: 20, paddingVertical: 14,
-    borderBottomWidth: 1, borderBottomColor: colors.border,
+    flexDirection: 'row', alignItems: 'center', gap: 14,
+    paddingHorizontal: 20, paddingVertical: 13,
   },
-  cardActive: { backgroundColor: 'rgba(37,99,235,0.06)' },
-  avatarWrap: { position: 'relative', marginRight: 14 },
   avatar: { alignItems: 'center', justifyContent: 'center' },
-  onlineDot: {
-    position: 'absolute', bottom: 1, right: 1,
-    width: 13, height: 13, borderRadius: 7,
-    backgroundColor: colors.success, borderWidth: 2, borderColor: colors.bg,
+  dot: {
+    position: 'absolute', top: 0, right: 0, width: 14, height: 14, borderRadius: 7,
+    backgroundColor: colors.accent, borderWidth: 2.5, borderColor: colors.bg,
   },
-  cardContent: { flex: 1 },
-  cardTop: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 },
-  clientName: { fontSize: 15, fontWeight: '600', color: colors.textPrimary, flex: 1, marginRight: 8 },
-  timeText: { fontSize: 12, color: colors.textMuted },
+  cardBody: { flex: 1, borderBottomWidth: 1, borderBottomColor: colors.border, paddingBottom: 13 },
+  cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
+  name: { fontSize: 16, fontWeight: '600', color: colors.textPrimary, flex: 1, marginRight: 8 },
+  nameBold: { fontWeight: '700' },
+  time: { fontSize: 12, color: colors.textMuted, fontWeight: '500' },
   cardBottom: { flexDirection: 'row', alignItems: 'center' },
-  lastMsg: { flex: 1, fontSize: 13, color: colors.textSecondary },
-  lastMsgBold: { color: colors.textPrimary, fontWeight: '500' },
-  badge: {
-    backgroundColor: colors.accent, borderRadius: 10, minWidth: 20, height: 20,
-    alignItems: 'center', justifyContent: 'center', paddingHorizontal: 5, marginLeft: 8,
-  },
-  badgeText: { fontSize: 11, fontWeight: '700', color: '#fff' },
-  empty: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 40, marginTop: 60 },
-  emptyIcon: {
-    width: 80, height: 80, borderRadius: 40, backgroundColor: 'rgba(37,99,235,0.1)',
-    alignItems: 'center', justifyContent: 'center', marginBottom: 20,
-  },
-  emptyTitle: { fontSize: 18, fontWeight: '700', color: colors.textPrimary, marginBottom: 8 },
-  emptySub: { fontSize: 14, color: colors.textSecondary, textAlign: 'center', lineHeight: 22, marginBottom: 28 },
-  newBtn: {
-    flexDirection: 'row', alignItems: 'center', backgroundColor: colors.accent,
-    paddingHorizontal: 20, paddingVertical: 12, borderRadius: radius.lg,
-  },
-  newBtnText: { color: '#fff', fontWeight: '600', fontSize: 14 },
+  preview: { flex: 1, fontSize: 14, color: colors.textSecondary, marginRight: 8 },
+  previewUnread: { color: colors.textPrimary, fontWeight: '500' },
+  badge: { backgroundColor: colors.accent, borderRadius: 11, minWidth: 22, height: 22, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6 },
+  badgeText: { fontSize: 12, fontWeight: '700', color: '#fff' },
+  empty: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 40 },
+  emptyIcon: { width: 84, height: 84, borderRadius: 42, backgroundColor: colors.accentGlow, alignItems: 'center', justifyContent: 'center', marginBottom: 22 },
+  emptyTitle: { fontSize: 19, fontWeight: '700', color: colors.textPrimary, marginBottom: 8 },
+  emptySub: { fontSize: 14, color: colors.textSecondary, textAlign: 'center', lineHeight: 22, marginBottom: 26 },
+  emptyBtn: { flexDirection: 'row', alignItems: 'center', gap: 7, backgroundColor: colors.accent, paddingHorizontal: 20, paddingVertical: 13, borderRadius: radius.lg },
+  emptyBtnText: { color: '#fff', fontWeight: '600', fontSize: 14 },
 });

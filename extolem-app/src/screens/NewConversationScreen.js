@@ -3,12 +3,14 @@ import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   ActivityIndicator, Alert, ScrollView, KeyboardAvoidingView, Platform
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import { colors, fonts, radius } from '../theme';
 import { addManualConversation } from '../api';
 
 export default function NewConversationScreen({ navigation }) {
+  const insets = useSafeAreaInsets();
   const [clientName, setClientName] = useState('');
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
@@ -29,9 +31,16 @@ export default function NewConversationScreen({ navigation }) {
 
   return (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <ScrollView contentContainerStyle={styles.scroll}>
-        <Text style={styles.title}>New Message</Text>
-        <Text style={styles.sub}>Paste a client message to get an instant AI reply suggestion</Text>
+      {/* Header */}
+      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
+        <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+          <Ionicons name="chevron-back" size={26} color={colors.textPrimary} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>New Message</Text>
+        <View style={{ width: 26 }} />
+      </View>
+      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+        <Text style={styles.sub}>Paste a client message to get an instant on-brand AI reply.</Text>
 
         <Text style={styles.label}>Client Name / Username</Text>
         <TextInput
@@ -90,8 +99,13 @@ export default function NewConversationScreen({ navigation }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg },
-  scroll: { padding: 20, paddingTop: 20, paddingBottom: 60 },
-  title: { ...fonts.extrabold, fontSize: 24, color: colors.textPrimary, marginBottom: 6 },
+  header: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 16, paddingBottom: 12,
+    backgroundColor: colors.bgElevated, borderBottomWidth: 1, borderBottomColor: colors.border,
+  },
+  headerTitle: { fontSize: 17, fontWeight: '700', color: colors.textPrimary },
+  scroll: { padding: 20, paddingTop: 24, paddingBottom: 60 },
   sub: { ...fonts.regular, fontSize: 14, color: colors.textSecondary, marginBottom: 28, lineHeight: 20 },
   label: { ...fonts.semibold, fontSize: 13, color: colors.textSecondary, marginBottom: 8 },
   input: {

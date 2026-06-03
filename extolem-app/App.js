@@ -1,13 +1,13 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { View, ActivityIndicator } from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
 import { Ionicons } from '@expo/vector-icons';
 import * as Font from 'expo-font';
-import { useEffect, useState } from 'react';
-import { colors, fonts } from './src/theme';
+import { colors } from './src/theme';
 
 import InboxScreen from './src/screens/InboxScreen';
 import ThreadScreen from './src/screens/ThreadScreen';
@@ -41,13 +41,13 @@ function InboxStack() {
 }
 
 export default function App() {
-  const [fontsReady, setFontsReady] = useState(false);
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    Font.loadAsync(Ionicons.font).then(() => setFontsReady(true)).catch(() => setFontsReady(true));
+    Font.loadAsync(Ionicons.font).then(() => setReady(true)).catch(() => setReady(true));
   }, []);
 
-  if (!fontsReady) {
+  if (!ready) {
     return (
       <View style={{ flex: 1, backgroundColor: colors.bg, alignItems: 'center', justifyContent: 'center' }}>
         <ActivityIndicator color={colors.accent} size="large" />
@@ -56,36 +56,37 @@ export default function App() {
   }
 
   return (
-    <NavigationContainer theme={navTheme}>
-      <StatusBar style="light" />
-      <Tab.Navigator
-        screenOptions={({ route }) => ({
-          headerShown: false,
-          tabBarStyle: {
-            backgroundColor: colors.bgCard,
-            borderTopColor: colors.border,
-            borderTopWidth: 1,
-            paddingBottom: 10,
-            paddingTop: 8,
-            height: 70,
-          },
-          tabBarActiveTintColor: colors.accent,
-          tabBarInactiveTintColor: colors.textMuted,
-          tabBarLabelStyle: { fontSize: 10, fontWeight: '500', marginTop: 2 },
-          tabBarIcon: ({ focused, color }) => {
-            const icons = {
-              Messages: focused ? 'chatbubbles' : 'chatbubbles-outline',
-              Assistant: focused ? 'sparkles' : 'sparkles-outline',
-              Knowledge: focused ? 'library' : 'library-outline',
-            };
-            return <Ionicons name={icons[route.name] || 'ellipse-outline'} size={24} color={color} />;
-          },
-        })}
-      >
-        <Tab.Screen name="Messages" component={InboxStack} />
-        <Tab.Screen name="Assistant" component={AIAssistantScreen} />
-        <Tab.Screen name="Knowledge" component={KnowledgeScreen} />
-      </Tab.Navigator>
-    </NavigationContainer>
+    <SafeAreaProvider>
+      <NavigationContainer theme={navTheme}>
+        <StatusBar style="light" />
+        <Tab.Navigator
+          screenOptions={({ route }) => ({
+            headerShown: false,
+            tabBarStyle: {
+              backgroundColor: colors.bgCard,
+              borderTopColor: colors.border,
+              borderTopWidth: 1,
+              paddingTop: 8,
+              height: 64,
+            },
+            tabBarActiveTintColor: colors.accent,
+            tabBarInactiveTintColor: colors.textMuted,
+            tabBarLabelStyle: { fontSize: 11, fontWeight: '600' },
+            tabBarIcon: ({ focused, color }) => {
+              const icons = {
+                Messages: focused ? 'chatbubbles' : 'chatbubbles-outline',
+                Assistant: focused ? 'sparkles' : 'sparkles-outline',
+                Knowledge: focused ? 'library' : 'library-outline',
+              };
+              return <Ionicons name={icons[route.name] || 'ellipse-outline'} size={23} color={color} />;
+            },
+          })}
+        >
+          <Tab.Screen name="Messages" component={InboxStack} />
+          <Tab.Screen name="Assistant" component={AIAssistantScreen} />
+          <Tab.Screen name="Knowledge" component={KnowledgeScreen} />
+        </Tab.Navigator>
+      </NavigationContainer>
+    </SafeAreaProvider>
   );
 }

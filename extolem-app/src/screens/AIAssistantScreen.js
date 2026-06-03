@@ -3,6 +3,7 @@ import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   ScrollView, ActivityIndicator, Keyboard, KeyboardAvoidingView, Platform
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import { colors, fonts, radius } from '../theme';
@@ -18,6 +19,7 @@ const QUICK_PROMPTS = [
 ];
 
 export default function AIAssistantScreen() {
+  const insets = useSafeAreaInsets();
   const [messages, setMessages] = useState([
     {
       role: 'assistant',
@@ -55,13 +57,13 @@ export default function AIAssistantScreen() {
   return (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
         <View style={styles.headerIcon}>
           <Ionicons name="sparkles" size={20} color={colors.accent} />
         </View>
         <View>
           <Text style={styles.headerTitle}>AI Assistant</Text>
-          <Text style={styles.headerSub}>Powered by DeepSeek · Extolem knowledge</Text>
+          <Text style={styles.headerSub}>Powered by DeepSeek · knows Extolem A–Z</Text>
         </View>
       </View>
 
@@ -136,7 +138,8 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg },
   header: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
-    paddingHorizontal: 20, paddingTop: 60, paddingBottom: 16,
+    paddingHorizontal: 20, paddingBottom: 16,
+    backgroundColor: colors.bgElevated,
     borderBottomWidth: 1, borderBottomColor: colors.border,
   },
   headerIcon: {

@@ -81,11 +81,17 @@ app.post('/webhook/instagram', async (req, res) => {
 app.get('/conversations', requireAuth, (req, res) => {
   const convos = db.prepare(`
     SELECT c.*,
-      (SELECT text FROM messages WHERE thread_id = c.instagram_thread_id ORDER BY timestamp DESC LIMIT 1) as last_message,
-      (SELECT timestamp FROM messages WHERE thread_id = c.instagram_thread_id ORDER BY timestamp DESC LIMIT 1) as last_message_time,
-      (SELECT COUNT(*) FROM messages WHERE thread_id = c.instagram_thread_id AND replied = 0 AND sender = 'client') as unread_count
+      (SELECT text FROM messages WHERE thread_id = c.instagram_thread_id ORDER BY timestamp DESC, id DESC LIMIT 1) as last_message,
+      (SELECT timestamp FROM messages WHERE thread_id = c.instagram_thread_id ORDER BY timestamp DESC, id DESC LIMIT 1) as last_message_time,
+      (SELECT COUNT(*) FROM messages m
+         WHERE m.thread_id = c.instagram_thread_id AND m.sender = 'client'
+           AND m.timestamp > COALESCE(
+             (SELECT MAX(timestamp) FROM messages WHERE thread_id = c.instagram_thread_id AND sender = 'extolem'), '0'
+           )
+      ) as unread_count
     FROM conversations c
-    ORDER BY c.updated_at DESC
+    WHERE EXISTS (SELECT 1 FROM messages WHERE thread_id = c.instagram_thread_id)
+    ORDER BY last_message_time DESC
   `).all();
   res.json(convos);
 });
@@ -234,39 +240,93 @@ app.get('/knowledge', requireAuth, (req, res) => {
   res.json(db.prepare('SELECT * FROM knowledge_base ORDER BY category').all());
 });
 
-// ─── POLLER INGEST (from instagrapi Python poller) ───────────────────────────
-app.post('/poller/message', requireAuth, async (req, res) => {
-  const { threadId, messageId, senderUsername, senderName, text } = req.body;
-  if (!threadId || !text) return res.status(400).json({ error: 'missing fields' });
+const { suggestReply: genSuggestReply } = require('./deepseek');
 
-  // Upsert conversation
+// Insert one message + upsert its conversation. Returns true if it was NEW.
+function ingestOneMessage({ threadId, messageId, senderUsername, senderName, text, sender, timestamp }) {
+  if (!threadId || !text || !messageId) return false;
+  const who = sender === 'extolem' ? 'extolem' : 'client';
+
+  // Upsert conversation (only update name from real client messages)
   db.prepare(`
     INSERT INTO conversations (instagram_thread_id, client_username, client_name)
     VALUES (?, ?, ?)
-    ON CONFLICT(instagram_thread_id) DO UPDATE SET updated_at = CURRENT_TIMESTAMP
-  `).run(threadId, senderUsername, senderName);
+    ON CONFLICT(instagram_thread_id) DO UPDATE SET
+      updated_at = CURRENT_TIMESTAMP,
+      client_username = COALESCE(NULLIF(excluded.client_username,''), conversations.client_username),
+      client_name = COALESCE(NULLIF(excluded.client_name,''), conversations.client_name)
+  `).run(threadId, senderUsername || '', senderName || '');
 
-  // Insert message if not seen
+  // Skip if we already have this message
   const existing = db.prepare('SELECT id FROM messages WHERE instagram_message_id = ?').get(messageId);
-  if (existing) return res.json({ ok: true, duplicate: true });
+  if (existing) return false;
 
-  db.prepare('INSERT INTO messages (thread_id, instagram_message_id, sender, text) VALUES (?, ?, "client", ?)')
-    .run(threadId, messageId, text);
+  // Insert with original timestamp if provided (keeps correct ordering)
+  if (timestamp) {
+    db.prepare('INSERT OR IGNORE INTO messages (thread_id, instagram_message_id, sender, text, timestamp) VALUES (?, ?, ?, ?, ?)')
+      .run(threadId, messageId, who, text, timestamp);
+  } else {
+    db.prepare('INSERT OR IGNORE INTO messages (thread_id, instagram_message_id, sender, text) VALUES (?, ?, ?, ?)')
+      .run(threadId, messageId, who, text);
+  }
+  return true;
+}
 
-  // Get thread history for context
+// Generate an AI suggestion for a brand-new client message (async, best-effort)
+function queueAISuggestion(threadId, messageId, text) {
   const history = db.prepare(
     'SELECT sender, text FROM messages WHERE thread_id = ? ORDER BY timestamp DESC LIMIT 10'
   ).all(threadId).reverse();
+  genSuggestReply(text, history).then(suggestion => {
+    db.prepare('UPDATE messages SET ai_suggestion = ? WHERE instagram_message_id = ?').run(suggestion, messageId);
+  }).catch(e => console.error('AI suggestion failed:', e.message));
+}
 
-  // Auto-generate AI reply suggestion in background
-  const { suggestReply } = require('./deepseek');
-  suggestReply(text, history).then(suggestion => {
-    db.prepare('UPDATE messages SET ai_suggestion = ? WHERE instagram_message_id = ?')
-      .run(suggestion, messageId);
-    console.log(`✅ AI suggestion ready for message from @${senderUsername}`);
-  }).catch(console.error);
+// ─── POLLER INGEST — single message (legacy) ─────────────────────────────────
+app.post('/poller/message', requireAuth, (req, res) => {
+  try {
+    const isNew = ingestOneMessage({ ...req.body, sender: 'client' });
+    if (isNew && req.body.messageId) queueAISuggestion(req.body.threadId, req.body.messageId, req.body.text);
+    res.json({ ok: true, new: isNew });
+  } catch (e) {
+    console.error('poller/message error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
 
-  res.json({ ok: true });
+// ─── POLLER INGEST — batch sync (primary) ────────────────────────────────────
+// Accepts { messages: [{threadId, messageId, senderUsername, senderName, text, sender, timestamp}] }
+// Dedupes by messageId, only generates AI for genuinely new client messages.
+// This is idempotent — safe to resend the same messages every poll.
+app.post('/poller/sync', requireAuth, (req, res) => {
+  const list = Array.isArray(req.body.messages) ? req.body.messages : [];
+  let newCount = 0;
+  const toSuggest = [];
+
+  const tx = db.transaction((items) => {
+    for (const m of items) {
+      try {
+        const isNew = ingestOneMessage(m);
+        if (isNew) {
+          newCount++;
+          // Only auto-suggest for client messages that have no reply after them
+          if ((m.sender || 'client') === 'client') {
+            toSuggest.push({ threadId: m.threadId, messageId: m.messageId, text: m.text });
+          }
+        }
+      } catch (e) {
+        console.error('ingest error:', e.message);
+      }
+    }
+  });
+  tx(list);
+
+  // Respond immediately, then generate AI suggestions in the background.
+  res.json({ ok: true, received: list.length, new: newCount });
+
+  // Only generate suggestions for the most recent few to avoid burst cost.
+  toSuggest.slice(-5).forEach(s => queueAISuggestion(s.threadId, s.messageId, s.text));
+  if (newCount > 0) console.log(`✅ Synced ${newCount} new message(s) from ${list.length} received`);
 });
 
 // ─── HEALTH CHECK ─────────────────────────────────────────────────────────────

@@ -3,11 +3,13 @@ import {
   View, Text, FlatList, TouchableOpacity, StyleSheet,
   TextInput, Alert, ActivityIndicator, Modal, ScrollView
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, fonts, radius } from '../theme';
 import { getKnowledge, updateKnowledge } from '../api';
 
 export default function KnowledgeScreen() {
+  const insets = useSafeAreaInsets();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState(false);
@@ -45,13 +47,16 @@ export default function KnowledgeScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Knowledge Base</Text>
+      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
+        <View>
+          <Text style={styles.brand}>EXTOLEM</Text>
+          <Text style={styles.title}>Knowledge Base</Text>
+        </View>
         <TouchableOpacity style={styles.addBtn} onPress={() => openEdit(null)}>
-          <Ionicons name="add" size={20} color={colors.white} />
+          <Ionicons name="add" size={22} color={colors.white} />
         </TouchableOpacity>
       </View>
-      <Text style={styles.sub}>The AI learns from everything here. Edit or add to update what it knows.</Text>
+      <Text style={styles.sub}>The AI uses everything here when replying. Tap any card to edit, or + to add.</Text>
 
       {loading ? <ActivityIndicator color={colors.accent} style={{ marginTop: 40 }} /> : (
         <FlatList
@@ -108,10 +113,11 @@ export default function KnowledgeScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 60, paddingBottom: 8 },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', paddingHorizontal: 20, paddingBottom: 10 },
+  brand: { fontSize: 11, fontWeight: '800', color: colors.accent, letterSpacing: 3, marginBottom: 3 },
   title: { ...fonts.extrabold, fontSize: 26, color: colors.textPrimary },
-  sub: { ...fonts.regular, fontSize: 13, color: colors.textMuted, paddingHorizontal: 20, marginBottom: 8 },
-  addBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: colors.accent, alignItems: 'center', justifyContent: 'center' },
+  sub: { ...fonts.regular, fontSize: 13, color: colors.textMuted, paddingHorizontal: 20, marginBottom: 8, marginTop: 6, lineHeight: 18 },
+  addBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.accent, alignItems: 'center', justifyContent: 'center' },
   card: { backgroundColor: colors.bgCard, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, padding: 14, marginBottom: 10 },
   cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
   tag: { backgroundColor: colors.accentGlow, borderRadius: radius.full, paddingHorizontal: 10, paddingVertical: 3 },
