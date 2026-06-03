@@ -4,7 +4,7 @@ workflows:
     max_build_duration: 60
     environment:
       node: 18.17.0
-      java: 17
+      java: 11
     scripts:
       - name: Install dependencies
         script: |
@@ -13,14 +13,19 @@ workflows:
       - name: Expo Prebuild
         script: |
           cd extolem-app
-          npx expo prebuild --platform android --clean --no-install
+          npx expo prebuild --platform android --clean
+      - name: Fix Gradle settings
+        script: |
+          cd extolem-app/android
+          # Ensure pluginManagement is set correctly for expo modules
+          cat settings.gradle
       - name: Build Android APK
         script: |
           cd extolem-app/android
           chmod +x gradlew
-          ./gradlew assembleRelease
+          ./gradlew assembleDebug
     artifacts:
-      - extolem-app/android/app/build/outputs/apk/release/*.apk
+      - extolem-app/android/app/build/outputs/apk/debug/*.apk
     publishing:
       email:
         recipients:
