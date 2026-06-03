@@ -4,7 +4,7 @@ workflows:
     max_build_duration: 60
     environment:
       node: 18.17.0
-      java: 11
+      java: 17
     scripts:
       - name: Install dependencies
         script: |
@@ -14,16 +14,19 @@ workflows:
         script: |
           cd extolem-app
           npx expo prebuild --platform android --clean
-      - name: Fix Gradle settings
+      - name: Fix Gradle wrapper version
         script: |
           cd extolem-app/android
-          # Ensure pluginManagement is set correctly for expo modules
-          cat settings.gradle
+          # Downgrade to Gradle 8.3 which is compatible with expo-modules-core
+          sed -i 's|gradle-8.*-bin.zip|gradle-8.3-bin.zip|g' gradle/wrapper/gradle-wrapper.properties
+          cat gradle/wrapper/gradle-wrapper.properties
+          # Set Java 17 explicitly
+          echo "org.gradle.java.home=$JAVA_HOME" >> gradle.properties
       - name: Build Android APK
         script: |
           cd extolem-app/android
           chmod +x gradlew
-          ./gradlew assembleDebug
+          ./gradlew assembleDebug --no-daemon
     artifacts:
       - extolem-app/android/app/build/outputs/apk/debug/*.apk
     publishing:
