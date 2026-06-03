@@ -72,9 +72,11 @@ def poll():
         login()
         threads = cl.direct_threads(amount=20)
 
+    print(f"[Extolem Poller] Found {len(threads)} threads")
     for thread in threads:
         try:
             full_thread = cl.direct_thread(thread.id, amount=10)
+            print(f"[Extolem Poller] Thread {thread.id}: {len(full_thread.messages)} messages")
             for msg in full_thread.messages:
                 if not msg.text:
                     continue
@@ -88,6 +90,7 @@ def poll():
 
                 # Skip old messages on first run (only load new ones going forward)
                 if not initialized:
+                    print(f"[Extolem Poller] Skipping old message: {msg.text[:40]}")
                     continue
 
                 sender_username = str(msg.user_id)
