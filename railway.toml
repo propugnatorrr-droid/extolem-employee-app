@@ -1,0 +1,8 @@
+[build]
+builder = "nixpacks"
+buildCommand = "cd extolem-backend && npm install"
+
+[deploy]
+startCommand = "cd extolem-backend && node server.js"
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 10
