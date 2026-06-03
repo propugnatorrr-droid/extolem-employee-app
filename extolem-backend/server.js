@@ -1,4 +1,6 @@
 require('dotenv').config();
+process.on('uncaughtException', (err) => console.error('Uncaught:', err.message));
+process.on('unhandledRejection', (err) => console.error('Unhandled:', err?.message || err));
 const express = require('express');
 const cors = require('cors');
 const crypto = require('crypto');

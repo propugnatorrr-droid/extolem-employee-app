@@ -3,6 +3,10 @@ const path = require('path');
 
 const db = new Database(path.join(__dirname, 'extolem.db'));
 
+// Enable WAL mode for better concurrent write handling
+db.pragma('journal_mode = WAL');
+db.pragma('synchronous = NORMAL');
+
 db.exec(`
   CREATE TABLE IF NOT EXISTS conversations (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
