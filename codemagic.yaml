@@ -5,30 +5,21 @@ workflows:
     environment:
       node: 18.17.0
       java: 17
+      vars:
+        EXPO_TOKEN: sci8ETBolVy24X3jGtoTi23e4BQkr0vvLTAoZK67
     scripts:
       - name: Install dependencies
         script: |
           cd extolem-app
           npm install
-      - name: Expo Prebuild
+      - name: Install EAS CLI
+        script: npm install -g eas-cli@latest
+      - name: Build APK locally with EAS
         script: |
           cd extolem-app
-          npx expo prebuild --platform android --clean
-      - name: Fix Gradle wrapper version
-        script: |
-          cd extolem-app/android
-          # Downgrade to Gradle 8.3 which is compatible with expo-modules-core
-          sed -i 's|gradle-8.*-bin.zip|gradle-8.3-bin.zip|g' gradle/wrapper/gradle-wrapper.properties
-          cat gradle/wrapper/gradle-wrapper.properties
-          # Set Java 17 explicitly
-          echo "org.gradle.java.home=$JAVA_HOME" >> gradle.properties
-      - name: Build Android APK
-        script: |
-          cd extolem-app/android
-          chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon
+          eas build --platform android --profile preview --local --non-interactive --output /tmp/extolem.apk
     artifacts:
-      - extolem-app/android/app/build/outputs/apk/debug/*.apk
+      - /tmp/extolem.apk
     publishing:
       email:
         recipients:
