@@ -4,6 +4,15 @@
     "slug": "extolem-employee",
     "version": "1.0.0",
     "orientation": "portrait",
+    "androidStatusBar": {
+      "backgroundColor": "#070B14",
+      "barStyle": "light-content",
+      "translucent": true
+    },
+    "androidNavigationBar": {
+      "backgroundColor": "#070B14",
+      "barStyle": "light"
+    },
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
     "splash": {
