@@ -5,7 +5,7 @@ const express = require('express');
 const cors = require('cors');
 const crypto = require('crypto');
 const db = require('./db');
-const { generateReply, suggestReply } = require('./deepseek');
+const { generateReply, chatReply, suggestReply } = require('./deepseek');
 
 const app = express();
 app.use(cors());
@@ -186,7 +186,7 @@ app.post('/ask', requireAuth, async (req, res) => {
   }
 
   try {
-    const answer = await generateReply(history, question);
+    const answer = await chatReply(history, question);
     res.json({ answer });
   } catch (e) {
     console.error(e.message);

@@ -132,21 +132,55 @@ INTERNAL Q&A MODE
 If the employee asks a factual question (pricing, services, etc.) — answer directly and concisely. No analysis needed.
 `.trim();
 
-// ─── GENERATE REPLY (conversation history aware) ──────────────────────────
+// Low-level call
+async function callAI(messages, maxTokens = 2000) {
+  const response = await axios.post(
+    AI_API_URL,
+    { model: AI_MODEL, messages, max_tokens: maxTokens, temperature: 0.75 },
+    { headers: { 'Authorization': `Bearer ${AI_API_KEY}`, 'Content-Type': 'application/json' }, timeout: 45000 }
+  );
+  return response.data.choices[0].message.content;
+}
+
+// ─── GENERATE REPLY (used for DM analysis — pushes the APEX format) ─────────
 async function generateReply(conversationHistory, userQuestion) {
-  const messages = [
+  return callAI([
     { role: 'system', content: SYSTEM_PROMPT() },
     ...conversationHistory.slice(-12),
     { role: 'user', content: userQuestion }
-  ];
+  ]);
+}
 
-  const response = await axios.post(
-    AI_API_URL,
-    { model: AI_MODEL, messages, max_tokens: 2000, temperature: 0.75 },
-    { headers: { 'Authorization': `Bearer ${AI_API_KEY}`, 'Content-Type': 'application/json' }, timeout: 45000 }
-  );
+// ─── COACH PROMPT (for the Assistant tab — talks TO the employee) ───────────
+const COACH_PROMPT = () => `
+You are Extolem AI — the in-house sales coach and assistant for Extolem team members.
 
-  return response.data.choices[0].message.content;
+You are speaking DIRECTLY to an Extolem EMPLOYEE (a teammate), NOT to a client or prospect.
+Your job is to coach them, answer their questions, and help them sell better.
+
+ABOUT EXTOLEM:
+${getKnowledge()}
+
+HOW TO RESPOND:
+- Talk to the employee like a sharp, friendly sales mentor.
+- Answer their question directly and practically. Give them scripts, talking points, and tactics they can actually use.
+- When they ask "how do I respond to X", give them a ready-to-use example reply in plain quotes, plus a quick why.
+- Draw on Hormozi / Cardone / Chris Voss sales psychology where useful.
+- Keep it tight and skimmable. Use short paragraphs or a couple of bullets — not walls of text.
+
+NEVER DO THIS:
+- Do NOT analyze the employee's message for "emotion / intent / business category".
+- Do NOT output the 🎯 EMOTION / 📊 INTENT / ⚡ STRATEGY / 📌 NEXT MOVE template. That format is ONLY for analyzing a real client's DM, which is a different tool.
+- The employee is your teammate — never treat their question as a sales objection.
+`.trim();
+
+// ─── CHAT REPLY (Assistant tab + "Ask AI about this client") ────────────────
+async function chatReply(conversationHistory, employeeQuestion) {
+  return callAI([
+    { role: 'system', content: COACH_PROMPT() },
+    ...conversationHistory.slice(-12),
+    { role: 'user', content: employeeQuestion }
+  ], 1200);
 }
 
 // ─── PARSE AI RESPONSE ────────────────────────────────────────────────────
@@ -189,4 +223,4 @@ CLIENT MESSAGE TO ANALYZE: "${clientMessage}"${convoContext}`;
   return { raw, ...parseAIReply(raw) };
 }
 
-module.exports = { generateReply, suggestReply, parseAIReply };
+module.exports = { generateReply, chatReply, suggestReply, parseAIReply };
