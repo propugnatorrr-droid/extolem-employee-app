@@ -43,7 +43,9 @@
     "extra": {
       "eas": {
         "projectId": "b1bfedeb-d8df-4775-97ca-8f5ad3412a94"
-      }
+      },
+      "apiBaseUrl": "https://extolem-employee-app-production.up.railway.app",
+      "appToken": "extolem_app_secret_change_this"
     }
   }
 }
