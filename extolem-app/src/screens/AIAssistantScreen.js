@@ -63,7 +63,7 @@ export default function AIAssistantScreen() {
         </View>
         <View>
           <Text style={styles.headerTitle}>AI Assistant</Text>
-          <Text style={styles.headerSub}>Powered by DeepSeek · knows Extolem A–Z</Text>
+          <Text style={styles.headerSub}>Powered by Extolem AI · knows Extolem A–Z</Text>
         </View>
       </View>
 
