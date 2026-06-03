@@ -1,32 +1,34 @@
-export const colors = {
-  // Extolem brand — deep navy + electric blue
-  bg: '#070B14',
-  bgElevated: '#0C1322',
-  bgCard: '#0F1828',
-  bgInput: '#0A1120',
-  border: '#1C2A42',
-  borderLight: '#26374f',
+import { Platform } from 'react-native';
 
-  accent: '#3B82F6',
-  accentDark: '#2563EB',
-  accentLight: '#60A5FA',
-  accentGlow: 'rgba(59, 130, 246, 0.14)',
-  accentGlowSoft: 'rgba(59, 130, 246, 0.07)',
+export const colors = {
+  // Extolem — refined deep navy with a single confident blue accent
+  bg: '#0A0E17',
+  bgElevated: '#0E1320',
+  bgCard: '#141B2B',
+  bgCardHover: '#1A2336',
+  bgInput: '#10172680',
+  border: '#1E2839',
+  borderSoft: '#1A2230',
+
+  accent: '#4C8DFF',
+  accentDark: '#2E6BE6',
+  accentLight: '#7CABFF',
+  accentSoft: 'rgba(76, 141, 255, 0.12)',
+  accentFaint: 'rgba(76, 141, 255, 0.06)',
 
   white: '#FFFFFF',
-  textPrimary: '#EAF1FF',
-  textSecondary: '#93A4C0',
-  textMuted: '#566480',
+  textPrimary: '#F2F5FC',
+  textSecondary: '#A6B2C9',
+  textMuted: '#5E6B82',
 
-  success: '#22C55E',
-  successBg: 'rgba(34, 197, 94, 0.12)',
-  warning: '#F59E0B',
-  warningBg: 'rgba(245, 158, 11, 0.12)',
-  danger: '#EF4444',
-  dangerBg: 'rgba(239, 68, 68, 0.12)',
+  success: '#34D399',
+  successBg: 'rgba(52, 211, 153, 0.12)',
+  warning: '#FBBF24',
+  warningBg: 'rgba(251, 191, 36, 0.12)',
+  danger: '#F87171',
+  dangerBg: 'rgba(248, 113, 113, 0.12)',
 };
 
-// Plain text styles (no fontFamily so the system font renders crisply)
 export const fonts = {
   regular: { fontWeight: '400' },
   medium: { fontWeight: '500' },
@@ -35,25 +37,41 @@ export const fonts = {
   extrabold: { fontWeight: '800' },
 };
 
-export const radius = { sm: 8, md: 12, lg: 16, xl: 22, full: 999 };
+export const radius = { sm: 10, md: 14, lg: 18, xl: 24, full: 999 };
 
+// Softer, more natural depth — no harsh blue glow everywhere
 export const shadow = {
   card: {
-    shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3, shadowRadius: 12, elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.35,
+    shadowRadius: 20,
+    elevation: 6,
   },
-  glow: {
-    shadowColor: '#3B82F6', shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.4, shadowRadius: 16, elevation: 8,
+  subtle: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 3,
   },
 };
 
-// Avatar helpers (deterministic per name)
-export const AVATAR_COLORS = ['#6366F1', '#8B5CF6', '#EC4899', '#F59E0B', '#22C55E', '#3B82F6', '#14B8A6', '#F43F5E'];
+export const AVATAR_COLORS = ['#6366F1', '#8B5CF6', '#EC4899', '#FB923C', '#34D399', '#4C8DFF', '#2DD4BF', '#F472B6'];
+
 export function avatarColor(name) {
-  const i = (name || '?').split('').reduce((a, c) => a + c.charCodeAt(0), 0) % AVATAR_COLORS.length;
+  const key = name || '?';
+  const i = key.split('').reduce((a, c) => a + c.charCodeAt(0), 0) % AVATAR_COLORS.length;
   return AVATAR_COLORS[i];
 }
+
 export function initials(name) {
-  return (name || '?').replace('@', '').split(/[\s_.]+/).filter(Boolean).map(w => w[0]).join('').toUpperCase().slice(0, 2) || '?';
+  return (name || '?')
+    .replace('@', '')
+    .split(/[\s_.]+/)
+    .filter(Boolean)
+    .map((w) => w[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2) || '?';
 }
