@@ -1,0 +1,34 @@
+name: Auto OTA Update
+
+# Runs whenever you edit the app and push to main
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'extolem-app/**'
+  workflow_dispatch: {}   # also allow manual run from the Actions tab
+
+jobs:
+  publish-ota:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: Install dependencies (clean, correct SDK)
+        working-directory: extolem-app
+        run: npm install
+
+      - name: Publish OTA update to all phones
+        working-directory: extolem-app
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          MSG="${{ github.event.head_commit.message }}"
+          [ -z "$MSG" ] && MSG="Manual OTA update"
+          npx eas-cli@latest update --branch production --message "$MSG" --non-interactive
