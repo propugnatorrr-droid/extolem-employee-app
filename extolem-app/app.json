@@ -22,6 +22,7 @@
     "plugins": [
       "expo-router"
     ],
+    "owner": "extolem",
     "extra": {
       "eas": {
         "projectId": "your-eas-project-id"
