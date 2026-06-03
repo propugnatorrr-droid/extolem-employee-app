@@ -152,11 +152,20 @@ async function suggestReply(clientMessage, threadHistory = []) {
       threadHistory.map(m => `${m.sender === 'client' ? '🧑 Client' : '💼 Extolem'}: ${m.text}`).join('\n')
     : '';
 
-  const prompt = `Analyze this Instagram DM and generate the perfect reply.
+  const prompt = `You MUST respond in EXACTLY this format, no exceptions:
 
-CLIENT MESSAGE: "${clientMessage}"${convoContext}
+🎯 EMOTION: [one word emotion]
+📊 INTENT: [1-5] / BUSINESS: [category]
+⚡ STRATEGY: [one line on approach]
 
-Apply the full APEX analysis — detect emotion, intent level, business category, then generate the ideal reply using Hormozi principles.`;
+💬 SUGGESTED REPLY:
+"[the actual reply — max 3 sentences, ready to copy-paste]"
+
+📌 NEXT MOVE: [what to do if they reply / if they don't]
+
+---
+CLIENT MESSAGE TO ANALYZE: "${clientMessage}"${convoContext}`;
+
 
   return generateReply([], prompt);
 }
