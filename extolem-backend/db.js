@@ -56,7 +56,7 @@ if (existing.count === 0) {
     ['industries', 'Industries served: Healthcare (clinics, dental, plastic surgery, med spas), Legal (law firms), Real Estate, Home Services, Restaurants, Salons, B2B Companies, Local Service Businesses.'],
     ['contact', 'Contact: Email hello@extolem.com, Phone +1 (800) 559-8536, Website extolem.com, Instagram @extolem. Free 20-minute AI Growth Audit available — no obligation.'],
     ['pricing', 'Pricing is customized per business needs. We offer a free 20-minute AI Growth Audit to understand your goals and recommend the right solution. No packages are one-size-fits-all.'],
-    ['cta', 'Primary call to action: Book a Free AI Growth Audit at extolem.com. The audit is 20 minutes, completely free, and shows exactly where your business is leaking leads and revenue.'],
+    ['cta', 'When the user shows interest or a specific pain point, naturally weave in a tailored invitation. Keep it conversational for Instagram DMs—never copy-paste a rigid script.'],
     ['tone', 'Communication tone: data-driven, results-focused, conversational and friendly. Emphasize ROI, lead recovery, and automation benefits. Never be pushy — educate and guide. Always offer value first.'],
     ['objections', 'Common objections: Too expensive → "Pricing is customized, lets do a free audit first." Already have a website → "We don\'t just build sites, we deploy revenue systems." Not sure if AI works → "We\'ll show you exactly where you\'re losing leads in the audit."'],
     ['instagram', 'Instagram @extolem: Share AI tips, client results, behind-the-scenes content, and industry insights. DMs are handled by the Extolem team — respond within a few hours during business hours.'],
