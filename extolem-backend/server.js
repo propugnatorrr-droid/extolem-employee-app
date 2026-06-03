@@ -96,6 +96,65 @@ app.get('/conversations/:threadId/messages', requireAuth, (req, res) => {
   res.json(messages);
 });
 
+// ─── SEND REPLY BACK TO INSTAGRAM DM ─────────────────────────────────────────
+app.post('/conversations/:threadId/send', requireAuth, async (req, res) => {
+  const { text } = req.body;
+  const { threadId } = req.params;
+  if (!text) return res.status(400).json({ error: 'text required' });
+
+  // Get the Instagram sender ID from thread (format: ig_<senderId>)
+  const convo = db.prepare('SELECT * FROM conversations WHERE instagram_thread_id = ?').get(threadId);
+  if (!convo) return res.status(404).json({ error: 'Conversation not found' });
+
+  const isInstagramThread = threadId.startsWith('ig_');
+
+  if (isInstagramThread && process.env.INSTAGRAM_ACCESS_TOKEN) {
+    const recipientId = convo.client_username; // stored as sender ID
+    try {
+      const fetch = require('node-fetch');
+      const igRes = await fetch(`https://graph.instagram.com/v21.0/me/messages`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          recipient: { id: recipientId },
+          message: { text },
+          access_token: process.env.INSTAGRAM_ACCESS_TOKEN
+        })
+      });
+      const igData = await igRes.json();
+      if (igData.error) {
+        console.error('Instagram send error:', igData.error);
+        return res.status(500).json({ error: igData.error.message });
+      }
+    } catch (e) {
+      return res.status(500).json({ error: 'Failed to send via Instagram' });
+    }
+  }
+
+  // Store our reply in DB regardless
+  db.prepare('INSERT INTO messages (thread_id, instagram_message_id, sender, text, replied) VALUES (?, ?, "extolem", ?, 1)')
+    .run(threadId, `reply_${Date.now()}`, text);
+
+  // Mark all client messages as replied
+  db.prepare('UPDATE messages SET replied = 1 WHERE thread_id = ? AND sender = "client"').run(threadId);
+  db.prepare('UPDATE conversations SET updated_at = CURRENT_TIMESTAMP WHERE instagram_thread_id = ?').run(threadId);
+
+  res.json({ ok: true });
+});
+
+// ─── GET INSTAGRAM USER INFO (resolve name from sender ID) ───────────────────
+app.get('/instagram/user/:userId', requireAuth, async (req, res) => {
+  if (!process.env.INSTAGRAM_ACCESS_TOKEN) return res.json({ name: 'Instagram User' });
+  try {
+    const fetch = require('node-fetch');
+    const r = await fetch(`https://graph.instagram.com/v21.0/${req.params.userId}?fields=name,username&access_token=${process.env.INSTAGRAM_ACCESS_TOKEN}`);
+    const data = await r.json();
+    res.json(data);
+  } catch (e) {
+    res.json({ name: 'Instagram User' });
+  }
+});
+
 // ─── MARK AS REPLIED ──────────────────────────────────────────────────────────
 app.post('/conversations/:threadId/mark-replied', requireAuth, (req, res) => {
   db.prepare('UPDATE messages SET replied = 1 WHERE thread_id = ? AND sender = "client"')
