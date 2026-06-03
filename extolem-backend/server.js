@@ -232,6 +232,41 @@ app.get('/knowledge', requireAuth, (req, res) => {
   res.json(db.prepare('SELECT * FROM knowledge_base ORDER BY category').all());
 });
 
+// ─── POLLER INGEST (from instagrapi Python poller) ───────────────────────────
+app.post('/poller/message', requireAuth, async (req, res) => {
+  const { threadId, messageId, senderUsername, senderName, text } = req.body;
+  if (!threadId || !text) return res.status(400).json({ error: 'missing fields' });
+
+  // Upsert conversation
+  db.prepare(`
+    INSERT INTO conversations (instagram_thread_id, client_username, client_name)
+    VALUES (?, ?, ?)
+    ON CONFLICT(instagram_thread_id) DO UPDATE SET updated_at = CURRENT_TIMESTAMP
+  `).run(threadId, senderUsername, senderName);
+
+  // Insert message if not seen
+  const existing = db.prepare('SELECT id FROM messages WHERE instagram_message_id = ?').get(messageId);
+  if (existing) return res.json({ ok: true, duplicate: true });
+
+  db.prepare('INSERT INTO messages (thread_id, instagram_message_id, sender, text) VALUES (?, ?, "client", ?)')
+    .run(threadId, messageId, text);
+
+  // Get thread history for context
+  const history = db.prepare(
+    'SELECT sender, text FROM messages WHERE thread_id = ? ORDER BY timestamp DESC LIMIT 10'
+  ).all(threadId).reverse();
+
+  // Auto-generate AI reply suggestion in background
+  const { suggestReply } = require('./deepseek');
+  suggestReply(text, history).then(suggestion => {
+    db.prepare('UPDATE messages SET ai_suggestion = ? WHERE instagram_message_id = ?')
+      .run(suggestion, messageId);
+    console.log(`✅ AI suggestion ready for message from @${senderUsername}`);
+  }).catch(console.error);
+
+  res.json({ ok: true });
+});
+
 // ─── HEALTH CHECK ─────────────────────────────────────────────────────────────
 app.get('/health', (req, res) => res.json({ status: 'ok', service: 'Extolem AI Backend' }));
 
