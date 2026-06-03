@@ -71,7 +71,7 @@ app.post('/webhook/instagram', async (req, res) => {
 
       suggestReply(messageText, history).then(result => {
         db.prepare('UPDATE messages SET ai_suggestion = ? WHERE instagram_message_id = ?')
-          .run(result.suggestion, messageId);
+          .run(result.raw, messageId);
       }).catch(console.error);
     }
   }
@@ -285,7 +285,7 @@ function queueAISuggestion(threadId, messageId, text) {
     'SELECT sender, text FROM messages WHERE thread_id = ? ORDER BY timestamp DESC LIMIT 10'
   ).all(threadId).reverse();
   genSuggestReply(text, history).then(result => {
-    db.prepare('UPDATE messages SET ai_suggestion = ? WHERE instagram_message_id = ?').run(result.suggestion, messageId);
+    db.prepare('UPDATE messages SET ai_suggestion = ? WHERE instagram_message_id = ?').run(result.raw, messageId);
   }).catch(e => console.error('AI suggestion failed:', e.message));
 }
 

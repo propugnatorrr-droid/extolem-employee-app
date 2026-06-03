@@ -181,7 +181,7 @@ async function suggestReply(clientMessage, threadHistory = []) {
 CLIENT MESSAGE TO ANALYZE: "${clientMessage}"${convoContext}`;
 
   const raw = await generateReply([], prompt);
-  return parseAIReply(raw);
+  return { raw, ...parseAIReply(raw) };
 }
 
 module.exports = { generateReply, suggestReply, parseAIReply };
