@@ -88,10 +88,15 @@ def poll():
                     continue
                 seen_message_ids.add(msg_key)
 
-                # Skip old messages on first run (only load new ones going forward)
+                # On first run, only skip messages older than 24 hours
                 if not initialized:
-                    print(f"[Extolem Poller] Skipping old message: {msg.text[:40]}")
-                    continue
+                    try:
+                        msg_age_hours = (time.time() - msg.timestamp.timestamp()) / 3600
+                        if msg_age_hours > 24:
+                            continue
+                        print(f"[Extolem Poller] Recent message from first run ({msg_age_hours:.1f}h ago): {msg.text[:40]}")
+                    except Exception:
+                        continue
 
                 sender_username = str(msg.user_id)
                 sender_name = "Instagram User"
