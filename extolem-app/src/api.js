@@ -9,7 +9,8 @@ const api = axios.create({
 export const getConversations = () => api.get('/conversations').then(r => r.data);
 export const getMessages = (threadId) => api.get(`/conversations/${threadId}/messages`).then(r => r.data);
 export const markReplied = (threadId) => api.post(`/conversations/${threadId}/mark-replied`).then(r => r.data);
-export const askAI = (question, threadId) => api.post('/ask', { question, threadId }).then(r => r.data);
+export const askAI = (question, threadId, history) =>
+  api.post('/ask', { question, threadId, history }).then((r) => r.data);
 export const suggestReply = (messageText, threadId) => api.post('/suggest-reply', { messageText, threadId }).then(r => r.data);
 export const addManualConversation = (clientName, messageText) => api.post('/conversations/manual', { clientName, messageText }).then(r => r.data);
 export const getKnowledge = () => api.get('/knowledge').then(r => r.data);
