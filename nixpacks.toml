@@ -1,0 +1,8 @@
+[phases.setup]
+nixPkgs = ["nodejs_20", "npm-9_x"]
+
+[phases.build]
+cmds = ["cd extolem-backend && npm install"]
+
+[start]
+cmd = "cd extolem-backend && node server.js"
