@@ -32,7 +32,10 @@
     "updates": {
       "url": "https://u.expo.dev/b1bfedeb-d8df-4775-97ca-8f5ad3412a94",
       "enabled": true,
-      "checkAutomatically": "ON_LOAD"
+      "checkAutomatically": "ON_LOAD",
+      "requestHeaders": {
+        "expo-channel-name": "production"
+      }
     },
     "runtimeVersion": {
       "policy": "appVersion"
