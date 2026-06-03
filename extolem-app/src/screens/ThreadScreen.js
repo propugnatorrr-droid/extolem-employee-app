@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, FlatList, TouchableOpacity, StyleSheet,
   TextInput, ActivityIndicator, Alert, Keyboard, KeyboardAvoidingView, Platform,
+  Animated,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -10,11 +11,69 @@ import * as Haptics from 'expo-haptics';
 import { colors, radius, avatarColor, initials } from '../theme';
 import { getMessages, markReplied, suggestReply, askAI } from '../api';
 
+// ─── Emotion visual config ────────────────────────────────────
+const EMOTION_MAP = {
+  EXCITED:       { color: '#22C55E', bg: 'rgba(34,197,94,0.10)',  icon: 'trending-up',  label: 'Excited' },
+  CURIOUS:       { color: '#60A5FA', bg: 'rgba(96,165,250,0.10)',  icon: 'help-circle', label: 'Curious' },
+  SKEPTICAL:     { color: '#F59E0B', bg: 'rgba(245,158,11,0.10)',  icon: 'shield',      label: 'Skeptical' },
+  'PRICE-OBJECTING': { color: '#F97316', bg: 'rgba(249,115,22,0.10)', icon: 'cash',    label: 'Price Focus' },
+  PRICE_OBJECTING:{ color: '#F97316', bg: 'rgba(249,115,22,0.10)', icon: 'cash',        label: 'Price Focus' },
+  COLD:          { color: '#94A3B8', bg: 'rgba(148,163,184,0.10)', icon: 'snow',        label: 'Cold' },
+  HOT:           { color: '#EF4444', bg: 'rgba(239,68,68,0.10)',   icon: 'flame',       label: 'Hot Lead' },
+  GHOSTING_RISK: { color: '#A78BFA', bg: 'rgba(167,139,250,0.10)', icon: 'eye-off',     label: 'Ghost Risk' },
+  'GHOSTING-RISK':{ color: '#A78BFA', bg: 'rgba(167,139,250,0.10)', icon: 'eye-off',    label: 'Ghost Risk' },
+  GRATEFUL:      { color: '#14B8A6', bg: 'rgba(20,184,166,0.10)',  icon: 'heart',       label: 'Grateful' },
+  DISTRESSED:    { color: '#EC4899', bg: 'rgba(236,72,153,0.10)',  icon: 'pulse',       label: 'Distressed' },
+};
+
+// ─── Frontend parser (extracts structured fields from raw AI text) ──
+function parseAISuggestion(raw) {
+  if (!raw) return null;
+  const emotion = (raw.match(/🎯\s*EMOTION:\s*(.+)/i) || [])[1]?.trim();
+  const intentMatch = (raw.match(/📊\s*INTENT:\s*(\d)/i) || [])[1];
+  const intent = intentMatch ? parseInt(intentMatch, 10) : null;
+  const business = (raw.match(/BUSINESS:\s*(.+)/i) || [])[1]?.trim();
+  const strategy = (raw.match(/⚡\s*STRATEGY:\s*(.+)/i) || [])[1]?.trim();
+  const replyMatch = raw.match(/💬\s*SUGGESTED\s*REPLY:\s*\n?\s*[""]?\s*([\s\S]*?)\s*[""]?\s*(?:\n📌|\n$|$)/i);
+  const suggestion = (replyMatch ? replyMatch[1].trim() : '').replace(/^[""]|[""]$/g, '').trim();
+  const nextMove = (raw.match(/📌\s*NEXT\s*MOVE:\s*(.+)/i) || [])[1]?.trim();
+  return { emotion, intent, business, strategy, suggestion: suggestion || raw, nextMove };
+}
+
+function getEmotionCfg(emotionStr) {
+  if (!emotionStr) return null;
+  const norm = emotionStr.toUpperCase().replace(/[\s-]+/g, '_');
+  return EMOTION_MAP[norm] || EMOTION_MAP[emotionStr.toUpperCase()] || null;
+}
+
 function formatTime(dateStr) {
   if (!dateStr) return '';
   const d = new Date((dateStr || '').replace(' ', 'T') + (dateStr.includes('Z') ? '' : 'Z'));
   if (isNaN(d.getTime())) return '';
   return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
+// ─── Pulse dot component ──────────────────────────────────────
+function PulseDot({ color, size = 6 }) {
+  const anim = useRef(new Animated.Value(1)).current;
+  useEffect(() => {
+    const pulse = Animated.loop(
+      Animated.sequence([
+        Animated.timing(anim, { toValue: 0.4, duration: 1200, useNativeDriver: true }),
+        Animated.timing(anim, { toValue: 1, duration: 1200, useNativeDriver: true }),
+      ])
+    );
+    pulse.start();
+    return () => pulse.stop();
+  }, []);
+  return (
+    <Animated.View style={{
+      width: size, height: size, borderRadius: size / 2,
+      backgroundColor: color, opacity: anim,
+      shadowColor: color, shadowOffset: { width: 0, height: 0 },
+      shadowOpacity: 0.6, shadowRadius: 4, elevation: 3,
+    }} />
+  );
 }
 
 export default function ThreadScreen({ route, navigation }) {
@@ -25,9 +84,11 @@ export default function ThreadScreen({ route, navigation }) {
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [question, setQuestion] = useState('');
-  const [aiAnswer, setAiAnswer] = useState('');
+  const [aiData, setAiData] = useState(null); // { suggestion, emotion, intent, business, strategy, nextMove }
   const [aiLoading, setAiLoading] = useState(false);
   const [suggestLoading, setSuggestLoading] = useState(false);
+  const [showDetail, setShowDetail] = useState(false);
+  const cardOpacity = useRef(new Animated.Value(0)).current;
   const listRef = useRef(null);
 
   useEffect(() => {
@@ -44,15 +105,32 @@ export default function ThreadScreen({ route, navigation }) {
     finally { setLoading(false); }
   }
 
+  function showAICard(data) {
+    setAiData(data);
+    setShowDetail(false);
+    cardOpacity.setValue(0);
+    Animated.spring(cardOpacity, {
+      toValue: 1,
+      tension: 80,
+      friction: 10,
+      useNativeDriver: true,
+    }).start();
+  }
+
+  function dismissAICard() {
+    Animated.timing(cardOpacity, {
+      toValue: 0, duration: 180, useNativeDriver: true,
+    }).start(() => setAiData(null));
+  }
+
   async function handleSuggest() {
     const clientMsgs = messages.filter(m => m.sender === 'client');
     if (!clientMsgs.length) return Alert.alert('Nothing to reply to', 'No client messages in this conversation yet.');
     const last = clientMsgs[clientMsgs.length - 1];
     setSuggestLoading(true);
-    setAiAnswer('');
     try {
-      const { suggestion } = await suggestReply(last.text, thread.instagram_thread_id);
-      setAiAnswer(suggestion);
+      const data = await suggestReply(last.text, thread.instagram_thread_id);
+      showAICard(data);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
     } catch (e) {
       Alert.alert('Error', 'Could not generate a suggestion. Try again.');
@@ -63,10 +141,9 @@ export default function ThreadScreen({ route, navigation }) {
     if (!question.trim()) return;
     Keyboard.dismiss();
     setAiLoading(true);
-    setAiAnswer('');
     try {
       const { answer } = await askAI(question, thread.instagram_thread_id);
-      setAiAnswer(answer);
+      showAICard({ suggestion: answer, emotion: null, intent: null, business: null, strategy: null, nextMove: null });
     } catch (e) {
       Alert.alert('Error', 'AI request failed. Try again.');
     } finally { setAiLoading(false); }
@@ -83,8 +160,13 @@ export default function ThreadScreen({ route, navigation }) {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
   }
 
+  // ─── Render a single message ────────────────────────────────
   const renderMessage = ({ item }) => {
     const isClient = item.sender === 'client';
+    const aiSugRaw = item.ai_suggestion || '';
+    const parsed = aiSugRaw ? parseAISuggestion(aiSugRaw) : null;
+    const emotionCfg = parsed?.emotion ? getEmotionCfg(parsed.emotion) : null;
+
     return (
       <View style={[styles.row, isClient ? styles.rowLeft : styles.rowRight]}>
         <TouchableOpacity
@@ -95,16 +177,38 @@ export default function ThreadScreen({ route, navigation }) {
           <Text style={[styles.bubbleText, !isClient && { color: '#fff' }]}>{item.text}</Text>
           <Text style={[styles.bubbleTime, !isClient && { color: 'rgba(255,255,255,0.6)' }]}>{formatTime(item.timestamp)}</Text>
         </TouchableOpacity>
-        {isClient && item.ai_suggestion ? (
-          <TouchableOpacity style={styles.sugPill} onPress={() => setAiAnswer(item.ai_suggestion)} activeOpacity={0.8}>
-            <Ionicons name="sparkles" size={12} color={colors.accentLight} />
-            <Text style={styles.sugPillText} numberOfLines={1}>{item.ai_suggestion}</Text>
-            <Ionicons name="chevron-forward" size={13} color={colors.textMuted} />
+
+        {/* AI suggestion pill — shows emotion color + clean preview */}
+        {isClient && parsed?.suggestion ? (
+          <TouchableOpacity
+            style={[
+              styles.sugPill,
+              emotionCfg && { borderColor: emotionCfg.color + '50', backgroundColor: emotionCfg.bg },
+            ]}
+            onPress={() => showAICard(parsed)}
+            activeOpacity={0.75}
+          >
+            {emotionCfg ? (
+              <PulseDot color={emotionCfg.color} size={7} />
+            ) : (
+              <Ionicons name="sparkles" size={12} color={colors.accentLight} />
+            )}
+            <Text
+              style={[styles.sugPillText, emotionCfg && { color: emotionCfg.color }]}
+              numberOfLines={1}
+            >
+              {parsed.suggestion}
+            </Text>
+            <Ionicons name="chevron-forward" size={13} color={emotionCfg ? emotionCfg.color + '80' : colors.textMuted} />
           </TouchableOpacity>
         ) : null}
       </View>
     );
   };
+
+  const emotionCfg = aiData?.emotion ? getEmotionCfg(aiData.emotion) : null;
+  const accentColor = emotionCfg?.color || colors.accent;
+  const accentBg = emotionCfg?.bg || colors.accentGlow;
 
   return (
     <KeyboardAvoidingView
@@ -150,22 +254,98 @@ export default function ThreadScreen({ route, navigation }) {
         />
       )}
 
-      {/* AI suggestion card */}
-      {aiAnswer ? (
-        <View style={styles.aiCard}>
-          <View style={styles.aiHead}>
-            <Ionicons name="sparkles" size={14} color={colors.accentLight} />
-            <Text style={styles.aiHeadText}>AI Suggested Reply</Text>
-            <TouchableOpacity onPress={() => setAiAnswer('')} style={{ marginLeft: 'auto' }}>
-              <Ionicons name="close" size={18} color={colors.textMuted} />
+      {/* ── AI SUGGESTION CARD (stunning redesign) ── */}
+      {aiData ? (
+        <Animated.View style={[styles.aiCardWrapper, { opacity: cardOpacity }]}>
+          {/* Top accent bar */}
+          <View style={[styles.aiAccentBar, { backgroundColor: accentColor }]} />
+
+          <View style={[styles.aiCardInner, { borderColor: accentColor + '30' }]}>
+            {/* Header row */}
+            <View style={styles.aiHead}>
+              <View style={styles.aiHeadLeft}>
+                <Ionicons name="sparkles" size={16} color={accentColor} />
+                <Text style={[styles.aiHeadText, { color: accentColor }]}>AI Intelligence</Text>
+              </View>
+              <TouchableOpacity onPress={dismissAICard} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                <Ionicons name="close" size={20} color={colors.textMuted} />
+              </TouchableOpacity>
+            </View>
+
+            {/* Emotion + Intent + Business chips */}
+            {(emotionCfg || aiData?.intent || aiData?.business) ? (
+              <View style={styles.chipRow}>
+                {emotionCfg && (
+                  <View style={[styles.emotionChip, { backgroundColor: emotionCfg.bg, borderColor: emotionCfg.color + '40' }]}>
+                    <PulseDot color={emotionCfg.color} size={6} />
+                    <Ionicons name={emotionCfg.icon} size={12} color={emotionCfg.color} />
+                    <Text style={[styles.emotionChipText, { color: emotionCfg.color }]}>{emotionCfg.label}</Text>
+                  </View>
+                )}
+                {aiData?.intent ? (
+                  <View style={[styles.intentBar, { backgroundColor: colors.warningBg, borderColor: colors.warning + '30' }]}>
+                    <Text style={[styles.intentLabel, { color: colors.warning }]}>Intent</Text>
+                    <View style={styles.intentDots}>
+                      {[1, 2, 3, 4, 5].map(i => (
+                        <View
+                          key={i}
+                          style={[
+                            styles.intentDot,
+                            { backgroundColor: i <= aiData.intent ? colors.warning : colors.border },
+                            i <= aiData.intent && { shadowColor: colors.warning, shadowOpacity: 0.4, shadowRadius: 3, elevation: 2 },
+                          ]}
+                        />
+                      ))}
+                    </View>
+                  </View>
+                ) : null}
+                {aiData?.business && aiData.business !== 'Unknown' ? (
+                  <View style={[styles.emotionChip, { backgroundColor: 'rgba(59,130,246,0.08)', borderColor: colors.accent + '30' }]}>
+                    <Ionicons name="business" size={11} color={colors.accentLight} />
+                    <Text style={[styles.emotionChipText, { color: colors.accentLight }]}>{aiData.business}</Text>
+                  </View>
+                ) : null}
+              </View>
+            ) : null}
+
+            {/* Strategy — subtle, expandable */}
+            {aiData?.strategy ? (
+              <TouchableOpacity
+                style={styles.strategyRow}
+                onPress={() => setShowDetail(!showDetail)}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="flash" size={12} color={colors.textMuted} />
+                <Text style={styles.strategyText} numberOfLines={showDetail ? undefined : 1}>{aiData.strategy}</Text>
+                <Ionicons name={showDetail ? 'chevron-up' : 'chevron-down'} size={12} color={colors.textMuted} />
+              </TouchableOpacity>
+            ) : null}
+
+            {/* The suggested reply — the star of the show */}
+            <View style={[styles.replyBox, { borderLeftColor: accentColor, backgroundColor: accentBg }]}>
+              <Text style={styles.replyQuote}>"</Text>
+              <Text style={styles.replyText}>{aiData.suggestion}</Text>
+            </View>
+
+            {/* Next move — expandable */}
+            {(showDetail && aiData?.nextMove) ? (
+              <View style={styles.nextMoveRow}>
+                <Ionicons name="arrow-forward-circle" size={13} color={colors.textMuted} />
+                <Text style={styles.nextMoveText}>{aiData.nextMove}</Text>
+              </View>
+            ) : null}
+
+            {/* Copy button — copies ONLY the suggestion */}
+            <TouchableOpacity
+              style={[styles.copyBtn, { backgroundColor: accentColor }]}
+              onPress={() => copyText(aiData.suggestion)}
+              activeOpacity={0.85}
+            >
+              <Ionicons name="copy-outline" size={16} color="#fff" />
+              <Text style={styles.copyBtnText}>Copy Reply</Text>
             </TouchableOpacity>
           </View>
-          <Text style={styles.aiText}>{aiAnswer}</Text>
-          <TouchableOpacity style={styles.copyBtn} onPress={() => copyText(aiAnswer)}>
-            <Ionicons name="copy-outline" size={15} color="#fff" />
-            <Text style={styles.copyBtnText}>Copy Reply</Text>
-          </TouchableOpacity>
-        </View>
+        </Animated.View>
       ) : null}
 
       {/* Bottom bar */}
@@ -216,9 +396,9 @@ const styles = StyleSheet.create({
   bubbleText: { fontSize: 15, color: colors.textPrimary, lineHeight: 21 },
   bubbleTime: { fontSize: 10, color: colors.textMuted, marginTop: 4, alignSelf: 'flex-end' },
   sugPill: {
-    flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 6,
-    backgroundColor: colors.accentGlow, borderRadius: radius.full, paddingHorizontal: 12, paddingVertical: 6,
-    borderWidth: 1, borderColor: colors.accent + '40', maxWidth: '100%',
+    flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6,
+    backgroundColor: colors.accentGlow, borderRadius: radius.full, paddingHorizontal: 12, paddingVertical: 7,
+    borderWidth: 1, borderColor: colors.accent + '40', maxWidth: '95%',
   },
   sugPillText: { fontSize: 12, color: colors.textSecondary, flex: 1 },
 
@@ -226,12 +406,92 @@ const styles = StyleSheet.create({
   emptyMsgsText: { fontSize: 16, fontWeight: '600', color: colors.textSecondary, marginTop: 8 },
   emptyMsgsSub: { fontSize: 13, color: colors.textMuted, textAlign: 'center' },
 
-  aiCard: { backgroundColor: colors.bgCard, marginHorizontal: 12, borderRadius: radius.lg, padding: 14, borderWidth: 1, borderColor: colors.accent + '40', marginBottom: 6 },
-  aiHead: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 },
-  aiHeadText: { fontSize: 13, fontWeight: '700', color: colors.accentLight },
-  aiText: { fontSize: 15, color: colors.textPrimary, lineHeight: 22, marginBottom: 12 },
-  copyBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, backgroundColor: colors.accent, borderRadius: radius.md, paddingVertical: 12 },
-  copyBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
+  // ── STUNNING AI Card ──
+  aiCardWrapper: {
+    marginHorizontal: 12, marginBottom: 6,
+    borderRadius: radius.lg + 4,
+    shadowColor: colors.accent,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  aiAccentBar: {
+    height: 3,
+    borderTopLeftRadius: radius.lg + 4,
+    borderTopRightRadius: radius.lg + 4,
+  },
+  aiCardInner: {
+    backgroundColor: colors.bgCard,
+    borderBottomLeftRadius: radius.lg + 4,
+    borderBottomRightRadius: radius.lg + 4,
+    borderWidth: 1,
+    borderTopWidth: 0,
+    padding: 16,
+  },
+  aiHead: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  aiHeadLeft: {
+    flexDirection: 'row', alignItems: 'center', gap: 7,
+  },
+  aiHeadText: { fontSize: 14, fontWeight: '800', letterSpacing: 0.5, textTransform: 'uppercase' },
+
+  chipRow: {
+    flexDirection: 'row', flexWrap: 'wrap', gap: 6,
+    marginBottom: 10,
+  },
+  emotionChip: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    borderRadius: radius.full, paddingHorizontal: 10, paddingVertical: 5,
+    borderWidth: 1,
+  },
+  emotionChipText: { fontSize: 11, fontWeight: '700' },
+
+  intentBar: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    borderRadius: radius.full, paddingHorizontal: 10, paddingVertical: 5,
+    borderWidth: 1,
+  },
+  intentLabel: { fontSize: 10, fontWeight: '700', marginRight: 2 },
+  intentDots: { flexDirection: 'row', gap: 3 },
+  intentDot: {
+    width: 7, height: 7, borderRadius: 3.5,
+  },
+
+  strategyRow: {
+    flexDirection: 'row', alignItems: 'flex-start', gap: 6,
+    marginBottom: 8, paddingHorizontal: 4,
+  },
+  strategyText: { fontSize: 12, color: colors.textMuted, flex: 1, fontStyle: 'italic', lineHeight: 17 },
+
+  replyBox: {
+    borderLeftWidth: 3,
+    paddingLeft: 14, paddingVertical: 10, paddingRight: 10,
+    borderRadius: radius.md,
+    marginBottom: 10,
+  },
+  replyQuote: {
+    fontSize: 28, lineHeight: 28, color: colors.accentLight + '40',
+    fontWeight: '300', marginBottom: -6, marginLeft: -2,
+  },
+  replyText: {
+    fontSize: 15, color: colors.textPrimary, lineHeight: 23,
+    fontWeight: '400',
+  },
+
+  nextMoveRow: {
+    flexDirection: 'row', alignItems: 'flex-start', gap: 6,
+    marginBottom: 12, paddingHorizontal: 4,
+  },
+  nextMoveText: { fontSize: 12, color: colors.textMuted, flex: 1, lineHeight: 17 },
+
+  copyBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    borderRadius: radius.md, paddingVertical: 13,
+  },
+  copyBtnText: { color: '#fff', fontWeight: '800', fontSize: 14, letterSpacing: 0.5, textTransform: 'uppercase' },
 
   bottom: { backgroundColor: colors.bgElevated, borderTopWidth: 1, borderTopColor: colors.border, paddingHorizontal: 12, paddingTop: 10, gap: 10 },
   suggestBtn: {

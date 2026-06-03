@@ -144,6 +144,20 @@ async function generateReply(conversationHistory, userQuestion) {
   return response.data.choices[0].message.content;
 }
 
+// ─── PARSE AI RESPONSE ────────────────────────────────────────────────────
+function parseAIReply(raw) {
+  const emotion = (raw.match(/🎯\s*EMOTION:\s*(.+)/i) || [])[1]?.trim() || 'Unknown';
+  const intentMatch = (raw.match(/📊\s*INTENT:\s*(\d)/i) || [])[1];
+  const intent = intentMatch ? parseInt(intentMatch, 10) : 3;
+  const business = (raw.match(/BUSINESS:\s*(.+)/i) || [])[1]?.trim() || 'Unknown';
+  const strategy = (raw.match(/⚡\s*STRATEGY:\s*(.+)/i) || [])[1]?.trim() || '';
+  const replyMatch = raw.match(/💬\s*SUGGESTED\s*REPLY:\s*\n?\s*[""]?\s*([\s\S]*?)\s*[""]?\s*(?:\n📌|\n$|$)/i);
+  const suggestion = (replyMatch ? replyMatch[1].trim() : raw).replace(/^[""]|[""]$/g, '').trim();
+  const nextMove = (raw.match(/📌\s*NEXT\s*MOVE:\s*(.+)/i) || [])[1]?.trim() || '';
+
+  return { emotion, intent, business, strategy, suggestion, nextMove };
+}
+
 // ─── SUGGEST REPLY (for a specific client message) ────────────────────────
 async function suggestReply(clientMessage, threadHistory = []) {
   // Build conversation context
@@ -166,8 +180,8 @@ async function suggestReply(clientMessage, threadHistory = []) {
 ---
 CLIENT MESSAGE TO ANALYZE: "${clientMessage}"${convoContext}`;
 
-
-  return generateReply([], prompt);
+  const raw = await generateReply([], prompt);
+  return { raw, ...parseAIReply(raw) };
 }
 
-module.exports = { generateReply, suggestReply };
+module.exports = { generateReply, suggestReply, parseAIReply };

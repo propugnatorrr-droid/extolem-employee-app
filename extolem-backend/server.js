@@ -69,9 +69,9 @@ app.post('/webhook/instagram', async (req, res) => {
         'SELECT sender, text FROM messages WHERE thread_id = ? ORDER BY timestamp DESC LIMIT 10'
       ).all(threadId).reverse();
 
-      suggestReply(messageText, history).then(suggestion => {
+      suggestReply(messageText, history).then(result => {
         db.prepare('UPDATE messages SET ai_suggestion = ? WHERE instagram_message_id = ?')
-          .run(suggestion, messageId);
+          .run(result.raw, messageId);
       }).catch(console.error);
     }
   }
@@ -204,8 +204,15 @@ app.post('/suggest-reply', requireAuth, async (req, res) => {
     : [];
 
   try {
-    const suggestion = await suggestReply(messageText, history);
-    res.json({ suggestion });
+    const result = await suggestReply(messageText, history);
+    res.json({
+      suggestion: result.suggestion,
+      emotion: result.emotion,
+      intent: result.intent,
+      business: result.business,
+      strategy: result.strategy,
+      nextMove: result.nextMove,
+    });
   } catch (e) {
     res.status(500).json({ error: 'AI request failed' });
   }
@@ -223,8 +230,8 @@ app.post('/conversations/manual', requireAuth, async (req, res) => {
   db.prepare('INSERT INTO messages (thread_id, instagram_message_id, sender, text) VALUES (?, ?, "client", ?)')
     .run(threadId, `msg_${Date.now()}`, messageText);
 
-  const suggestion = await suggestReply(messageText, []);
-  res.json({ threadId, suggestion });
+  const result = await suggestReply(messageText, []);
+  res.json({ threadId, suggestion: result.suggestion, emotion: result.emotion, intent: result.intent, business: result.business, strategy: result.strategy, nextMove: result.nextMove });
 });
 
 // ─── UPDATE KNOWLEDGE BASE ────────────────────────────────────────────────────
@@ -277,8 +284,8 @@ function queueAISuggestion(threadId, messageId, text) {
   const history = db.prepare(
     'SELECT sender, text FROM messages WHERE thread_id = ? ORDER BY timestamp DESC LIMIT 10'
   ).all(threadId).reverse();
-  genSuggestReply(text, history).then(suggestion => {
-    db.prepare('UPDATE messages SET ai_suggestion = ? WHERE instagram_message_id = ?').run(suggestion, messageId);
+  genSuggestReply(text, history).then(result => {
+    db.prepare('UPDATE messages SET ai_suggestion = ? WHERE instagram_message_id = ?').run(result.raw, messageId);
   }).catch(e => console.error('AI suggestion failed:', e.message));
 }
 
