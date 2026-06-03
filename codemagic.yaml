@@ -1,0 +1,26 @@
+workflows:
+  android-release:
+    name: Extolem Employee App - Android APK
+    max_build_duration: 60
+    environment:
+      node: 18.17.0
+    scripts:
+      - name: Install dependencies
+        script: |
+          cd extolem-app
+          npm install
+      - name: Build Android APK
+        script: |
+          cd extolem-app
+          npx expo prebuild --platform android --clean
+          cd android
+          ./gradlew assembleRelease
+    artifacts:
+      - extolem-app/android/app/build/outputs/apk/release/*.apk
+    publishing:
+      email:
+        recipients:
+          - extolemagency@gmail.com
+        notify:
+          success: true
+          failure: true
