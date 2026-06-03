@@ -4,16 +4,20 @@ workflows:
     max_build_duration: 60
     environment:
       node: 18.17.0
+      java: 17
     scripts:
       - name: Install dependencies
         script: |
           cd extolem-app
           npm install
-      - name: Build Android APK
+      - name: Expo Prebuild
         script: |
           cd extolem-app
-          npx expo prebuild --platform android --clean
-          cd android
+          npx expo prebuild --platform android --clean --no-install
+      - name: Build Android APK
+        script: |
+          cd extolem-app/android
+          chmod +x gradlew
           ./gradlew assembleRelease
     artifacts:
       - extolem-app/android/app/build/outputs/apk/release/*.apk
