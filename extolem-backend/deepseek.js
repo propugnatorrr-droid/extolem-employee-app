@@ -1,7 +1,12 @@
 const axios = require('axios');
 const db = require('./db');
 
-const DEEPSEEK_API_URL = 'https://api.deepseek.com/chat/completions';
+// ─── AI PROVIDER: Cloudflare Workers AI (free, Llama 3.3 70B) ────────────────
+const CF_ACCOUNT_ID = process.env.CF_ACCOUNT_ID;
+const CF_API_TOKEN = process.env.CF_API_TOKEN;
+const AI_MODEL = process.env.AI_MODEL || '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
+const AI_API_URL = `https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/ai/v1/chat/completions`;
+const AI_API_KEY = CF_API_TOKEN;
 
 function getKnowledge() {
   const rows = db.prepare('SELECT category, content FROM knowledge_base').all();
@@ -136,9 +141,9 @@ async function generateReply(conversationHistory, userQuestion) {
   ];
 
   const response = await axios.post(
-    DEEPSEEK_API_URL,
-    { model: 'deepseek-v4-flash', messages, max_tokens: 2000, temperature: 0.75 },
-    { headers: { 'Authorization': `Bearer ${process.env.DEEPSEEK_API_KEY}`, 'Content-Type': 'application/json' } }
+    AI_API_URL,
+    { model: AI_MODEL, messages, max_tokens: 2000, temperature: 0.75 },
+    { headers: { 'Authorization': `Bearer ${AI_API_KEY}`, 'Content-Type': 'application/json' }, timeout: 45000 }
   );
 
   return response.data.choices[0].message.content;
