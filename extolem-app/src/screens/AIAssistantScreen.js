@@ -152,7 +152,7 @@ export default function AIAssistantScreen() {
           disabled={!input.trim() || loading}
           activeOpacity={0.85}
         >
-          <Ionicons name="arrow-up" size={20} color="#fff" />
+          <Ionicons name="arrow-up" size={20} color="#03060B" />
         </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>
@@ -180,7 +180,7 @@ const styles = StyleSheet.create({
   bubbleAI: { backgroundColor: colors.bgCard, borderBottomLeftRadius: 6 },
   bubbleUser: { backgroundColor: colors.accent, borderBottomRightRadius: 6 },
   bubbleText: { ...fonts.regular, fontSize: 15, color: colors.textPrimary, lineHeight: 22 },
-  bubbleTextUser: { color: '#fff' },
+  bubbleTextUser: { color: '#03060B', fontWeight: '500' },
   typingBubble: { paddingVertical: 12, paddingHorizontal: 16 },
   quickRow: { maxHeight: 46, marginBottom: 6 },
   quickChip: { backgroundColor: colors.bgCard, borderRadius: radius.full, paddingHorizontal: 14, paddingVertical: 9 },
