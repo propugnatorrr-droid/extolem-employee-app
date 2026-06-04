@@ -172,21 +172,46 @@ app.post('/conversations/:threadId/mark-replied', requireAuth, (req, res) => {
 
 // ─── ASK AI (general employee question) ──────────────────────────────────────
 app.post('/ask', requireAuth, async (req, res) => {
-  const { question, threadId } = req.body;
+  const { question, threadId, history: clientHistory } = req.body;
   if (!question) return res.status(400).json({ error: 'question required' });
 
-  let history = [];
+  // The employee is ALWAYS the 'user' talking to the coach.
+  // Any client thread is passed as CONTEXT inside the question, never as chat turns,
+  // so the AI never mistakes the client's words for the employee's question.
+  let contextBlock = '';
   if (threadId) {
-    history = db.prepare(
+    const rows = db.prepare(
       'SELECT sender, text FROM messages WHERE thread_id = ? ORDER BY timestamp DESC LIMIT 10'
-    ).all(threadId).reverse().map(m => ({
-      role: m.sender === 'client' ? 'user' : 'assistant',
-      content: m.text
-    }));
+    ).all(threadId).reverse();
+    if (rows.length) {
+      const transcript = rows
+        .map(m => `${m.sender === 'client' ? 'Client' : 'Me (Extolem)'}: ${m.text}`)
+        .join('\n');
+      contextBlock =
+        `Here is the recent conversation with this client (for context only):\n` +
+        `"""\n${transcript}\n"""\n\n`;
+    }
   }
 
+  // Optional prior assistant-tab chat history (employee <-> coach), if the app sends it.
+  const convo = Array.isArray(clientHistory)
+    ? clientHistory
+        .filter(m => m && m.role && m.content)
+        .map(m => ({ role: m.role === 'assistant' ? 'assistant' : 'user', content: m.content }))
+    : [];
+
+  // Drop the last item if it's just a duplicate of the question the app re-sends.
+  if (convo.length && convo[convo.length - 1].role === 'user'
+      && convo[convo.length - 1].content.trim() === question.trim()) {
+    convo.pop();
+  }
+
+  const employeeTurn = contextBlock
+    ? `${contextBlock}My question: ${question}`
+    : question;
+
   try {
-    const answer = await chatReply(history, question);
+    const answer = await chatReply(convo, employeeTurn);
     res.json({ answer });
   } catch (e) {
     console.error(e.message);
