@@ -78,7 +78,7 @@ export default function InboxScreen({ navigation }) {
           </View>
         </View>
         <TouchableOpacity style={styles.addBtn} onPress={() => navigation.navigate('NewConversation')} activeOpacity={0.85}>
-          <Ionicons name="create-outline" size={21} color="#fff" />
+          <Ionicons name="create-outline" size={21} color="#03060B" />
         </TouchableOpacity>
       </View>
 
@@ -165,7 +165,7 @@ const styles = StyleSheet.create({
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   title: { fontSize: 30, fontWeight: '800', color: colors.textPrimary, letterSpacing: -0.5 },
   unreadPill: { backgroundColor: colors.accent, borderRadius: radius.full, minWidth: 24, paddingHorizontal: 8, paddingVertical: 2, alignItems: 'center' },
-  unreadPillText: { color: '#fff', fontSize: 12, fontWeight: '700' },
+  unreadPillText: { color: '#03060B', fontSize: 12, fontWeight: '700' },
   addBtn: { width: 46, height: 46, borderRadius: 23, backgroundColor: colors.accent, alignItems: 'center', justifyContent: 'center', ...shadow.subtle, shadowColor: colors.accent },
   searchWrap: {
     flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: colors.bgCard,
@@ -186,7 +186,7 @@ const styles = StyleSheet.create({
   preview: { flex: 1, fontSize: 14, color: colors.textSecondary, marginRight: 8 },
   previewUnread: { color: colors.textPrimary, fontWeight: '500' },
   badge: { backgroundColor: colors.accent, borderRadius: 11, minWidth: 22, height: 22, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6 },
-  badgeText: { fontSize: 12, fontWeight: '700', color: '#fff' },
+  badgeText: { fontSize: 12, fontWeight: '700', color: '#03060B' },
   empty: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 40 },
   emptyIcon: { width: 88, height: 88, borderRadius: 44, backgroundColor: colors.accentSoft, alignItems: 'center', justifyContent: 'center', marginBottom: 22 },
   emptyTitle: { fontSize: 20, fontWeight: '700', color: colors.textPrimary, marginBottom: 8 },
