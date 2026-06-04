@@ -181,8 +181,8 @@ export default function ThreadScreen({ route, navigation }) {
           onLongPress={() => copyText(item.text)}
           style={[styles.bubble, isClient ? styles.bubbleClient : styles.bubbleMe]}
         >
-          <Text style={[styles.bubbleText, !isClient && { color: '#fff' }]}>{item.text}</Text>
-          <Text style={[styles.bubbleTime, !isClient && { color: 'rgba(255,255,255,0.6)' }]}>{formatTime(item.timestamp)}</Text>
+          <Text style={[styles.bubbleText, !isClient && { color: '#03060B', fontWeight: '500' }]}>{item.text}</Text>
+          <Text style={[styles.bubbleTime, !isClient && { color: 'rgba(3,6,11,0.55)' }]}>{formatTime(item.timestamp)}</Text>
         </TouchableOpacity>
 
         {/* AI suggestion pill — shows emotion color + clean preview */}
@@ -348,7 +348,7 @@ export default function ThreadScreen({ route, navigation }) {
               onPress={() => copyText(aiData.suggestion)}
               activeOpacity={0.85}
             >
-              <Ionicons name="copy-outline" size={16} color="#fff" />
+              <Ionicons name="copy-outline" size={16} color="#03060B" />
               <Text style={styles.copyBtnText}>Copy Reply</Text>
             </TouchableOpacity>
           </View>
@@ -372,7 +372,7 @@ export default function ThreadScreen({ route, navigation }) {
             multiline
           />
           <TouchableOpacity style={[styles.send, !question.trim() && { opacity: 0.5 }]} onPress={handleAsk} disabled={aiLoading || !question.trim()}>
-            {aiLoading ? <ActivityIndicator color="#fff" size="small" /> : <Ionicons name="arrow-up" size={20} color="#fff" />}
+            {aiLoading ? <ActivityIndicator color="#03060B" size="small" /> : <Ionicons name="arrow-up" size={20} color="#03060B" />}
           </TouchableOpacity>
         </View>
       </View>
@@ -495,7 +495,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
     borderRadius: radius.md, paddingVertical: 13,
   },
-  copyBtnText: { color: '#fff', fontWeight: '700', fontSize: 15, letterSpacing: 0, textTransform: 'none' },
+  copyBtnText: { color: '#03060B', fontWeight: '700', fontSize: 15, letterSpacing: 0, textTransform: 'none' },
 
   bottom: { backgroundColor: colors.bgElevated, borderTopWidth: 1, borderTopColor: colors.border, paddingHorizontal: 12, paddingTop: 10, gap: 10 },
   suggestBtn: {
