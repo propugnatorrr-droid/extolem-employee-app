@@ -355,24 +355,30 @@ export default function ThreadScreen({ route, navigation }) {
         </Animated.View>
       ) : null}
 
-      {/* Bottom bar */}
+      {/* AI toolbar — clearly an assistant area, NOT a message composer */}
       <View style={[styles.bottom, { paddingBottom: Math.max(insets.bottom, 12) }]}>
         <TouchableOpacity style={styles.suggestBtn} onPress={handleSuggest} disabled={suggestLoading} activeOpacity={0.85}>
           {suggestLoading
-            ? <ActivityIndicator color={colors.accentLight} size="small" />
-            : <><Ionicons name="sparkles" size={16} color={colors.accentLight} /><Text style={styles.suggestBtnText}>Suggest Reply</Text></>}
+            ? <ActivityIndicator color={colors.accent} size="small" />
+            : <><Ionicons name="sparkles" size={16} color={colors.accent} /><Text style={styles.suggestBtnText}>Suggest a reply</Text></>}
         </TouchableOpacity>
+
+        <View style={styles.askLabelRow}>
+          <Ionicons name="help-circle-outline" size={13} color={colors.textMuted} />
+          <Text style={styles.askLabel}>Ask the AI about this client (only you see this)</Text>
+        </View>
+
         <View style={styles.inputRow}>
           <TextInput
             style={styles.input}
-            placeholder="Ask AI about this client…"
+            placeholder="e.g. How should I handle their pricing question?"
             placeholderTextColor={colors.textMuted}
             value={question}
             onChangeText={setQuestion}
             multiline
           />
           <TouchableOpacity style={[styles.send, !question.trim() && { opacity: 0.5 }]} onPress={handleAsk} disabled={aiLoading || !question.trim()}>
-            {aiLoading ? <ActivityIndicator color="#03060B" size="small" /> : <Ionicons name="arrow-up" size={20} color="#03060B" />}
+            {aiLoading ? <ActivityIndicator color="#03060B" size="small" /> : <Ionicons name="sparkles" size={18} color="#03060B" />}
           </TouchableOpacity>
         </View>
       </View>
