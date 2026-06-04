@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, FlatList, TouchableOpacity, StyleSheet,
   TextInput, ActivityIndicator, Alert, Keyboard, KeyboardAvoidingView, Platform,
-  Animated,
+  Animated, Linking,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -90,13 +90,19 @@ export default function ThreadScreen({ route, navigation }) {
   const [showDetail, setShowDetail] = useState(false);
   const cardOpacity = useRef(new Animated.Value(0)).current;
   const listRef = useRef(null);
+  const [toastVisible, setToastVisible] = useState(false);
+  const toastAnim = useRef(new Animated.Value(0)).current;
+  const toastTimer = useRef(null);
   const prevCount = useRef(0);
 
 
   useEffect(() => {
     loadMessages();
     const interval = setInterval(loadMessages, 10000);
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      if (toastTimer.current) clearTimeout(toastTimer.current);
+    };
   }, []);
 
   async function loadMessages() {
@@ -156,10 +162,39 @@ export default function ThreadScreen({ route, navigation }) {
     } finally { setAiLoading(false); }
   }
 
+  function showToast() {
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    setToastVisible(true);
+    Animated.spring(toastAnim, {
+      toValue: 1, tension: 70, friction: 11, useNativeDriver: true,
+    }).start();
+    toastTimer.current = setTimeout(hideToast, 4000);
+  }
+
+  function hideToast() {
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    Animated.timing(toastAnim, {
+      toValue: 0, duration: 200, useNativeDriver: true,
+    }).start(() => setToastVisible(false));
+  }
+
+  async function openInstagram() {
+    hideToast();
+    const username = thread.client_username;
+    const appUrl = username ? `instagram://user?username=${username}` : 'instagram://app';
+    const webUrl = username ? `https://instagram.com/${username}` : 'https://instagram.com';
+    try {
+      const supported = await Linking.canOpenURL(appUrl);
+      await Linking.openURL(supported ? appUrl : webUrl);
+    } catch (e) {
+      Linking.openURL(webUrl).catch(() => {});
+    }
+  }
+
   async function copyText(text) {
     await Clipboard.setStringAsync(text);
     await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-    Alert.alert('Copied', 'Reply copied — paste it into Instagram.');
+    showToast();
   }
 
   async function handleMarkReplied() {
@@ -382,6 +417,37 @@ export default function ThreadScreen({ route, navigation }) {
           </TouchableOpacity>
         </View>
       </View>
+
+      {/* Custom "Copied" toast — branded, with Open Instagram action */}
+      {toastVisible && (
+        <Animated.View
+          pointerEvents="box-none"
+          style={[
+            styles.toastWrap,
+            {
+              opacity: toastAnim,
+              transform: [{ translateY: toastAnim.interpolate({ inputRange: [0, 1], outputRange: [80, 0] }) }],
+            },
+          ]}
+        >
+          <View style={styles.toast}>
+            <View style={styles.toastIcon}>
+              <Ionicons name="checkmark" size={16} color="#03060B" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.toastTitle}>Reply copied</Text>
+              <Text style={styles.toastSub}>Paste it into the DM on Instagram</Text>
+            </View>
+            <TouchableOpacity style={styles.toastBtn} onPress={openInstagram} activeOpacity={0.85}>
+              <Ionicons name="logo-instagram" size={15} color="#03060B" />
+              <Text style={styles.toastBtnText}>Open</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={hideToast} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} style={{ marginLeft: 4 }}>
+              <Ionicons name="close" size={18} color={colors.textMuted} />
+            </TouchableOpacity>
+          </View>
+        </Animated.View>
+      )}
     </KeyboardAvoidingView>
   );
 }
@@ -516,4 +582,30 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14, paddingVertical: 12, color: colors.textPrimary, fontSize: 15, maxHeight: 100,
   },
   send: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.accent, alignItems: 'center', justifyContent: 'center' },
+
+  toastWrap: {
+    position: 'absolute', left: 12, right: 12, bottom: 100,
+    alignItems: 'center',
+  },
+  toast: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    width: '100%', maxWidth: 460,
+    backgroundColor: colors.bgCardHover,
+    borderRadius: radius.lg, borderWidth: 1, borderColor: colors.borderMint,
+    paddingHorizontal: 14, paddingVertical: 12,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.5, shadowRadius: 24, elevation: 12,
+  },
+  toastIcon: {
+    width: 30, height: 30, borderRadius: 15, backgroundColor: colors.accent,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  toastTitle: { fontSize: 14, fontWeight: '700', color: colors.textPrimary },
+  toastSub: { fontSize: 12, color: colors.textMuted, marginTop: 1 },
+  toastBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    backgroundColor: colors.accent, borderRadius: radius.full,
+    paddingHorizontal: 13, paddingVertical: 8,
+  },
+  toastBtnText: { fontSize: 13, fontWeight: '700', color: '#03060B' },
 });
