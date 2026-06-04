@@ -503,7 +503,7 @@ const styles = StyleSheet.create({
   },
   copyBtnText: { color: '#03060B', fontWeight: '700', fontSize: 15, letterSpacing: 0, textTransform: 'none' },
 
-  bottom: { backgroundColor: colors.bgElevated, borderTopWidth: 1, borderTopColor: colors.border, paddingHorizontal: 12, paddingTop: 10, gap: 10 },
+  bottom: { backgroundColor: colors.bgElevated, borderTopWidth: 1, borderTopColor: colors.border, paddingHorizontal: 12, paddingTop: 10, gap: 8 },   askLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 2 },   askLabel: { fontSize: 11, color: colors.textMuted, fontWeight: '500' },
   suggestBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7,
     backgroundColor: colors.accentGlow, borderRadius: radius.md, paddingVertical: 11,
@@ -512,7 +512,7 @@ const styles = StyleSheet.create({
   suggestBtnText: { color: colors.accentLight, fontWeight: '700', fontSize: 14 },
   inputRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 8 },
   input: {
-    flex: 1, backgroundColor: colors.bgInput, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border,
+    flex: 1, backgroundColor: colors.accentSoft, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.borderMint,
     paddingHorizontal: 14, paddingVertical: 12, color: colors.textPrimary, fontSize: 15, maxHeight: 100,
   },
   send: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.accent, alignItems: 'center', justifyContent: 'center' },
